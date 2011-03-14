@@ -53,8 +53,6 @@ Type
 		Property Receiver : String Read fReceiver Write fReceiver;
 		Constructor Create(Const aSender : String = ''; Const aReceiver : String = ''); Virtual;
 		Function Clone : TCustomMessage; Virtual;
-		Function AsString : String; Virtual;
-		Procedure SetAsString(Const aString : String); Virtual;
 	End;
 	TCustomMessageClass = Class Of TCustomMessage;
 	
