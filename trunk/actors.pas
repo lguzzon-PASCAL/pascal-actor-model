@@ -492,10 +492,10 @@ Initialization
 
 Finalization
 
-	MainQueue.Free;
 	SwitchBoard.Terminate;
 	SwitchBoard.Free;
 	While MainQueue.AtLeast(1) Do
 		MainQueue.Pop.Free;
+	MainQueue.Free;
 	
 End.
