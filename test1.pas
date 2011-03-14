@@ -30,28 +30,28 @@ Type
 	Private
 		fBuffer : String;
 	Public
+		// The message is simply a string
 		Property Buffer : String Read fBuffer Write fBuffer;
 	End;
 	
 	TConsumerActor = Class(TActorThread)
 	Public
-		Constructor Create(Const aName : String = 'consumer'; CreateSuspended : Boolean = True; Const StackSize : SizeUInt = DefaultStackSize; Const aTimeout : Integer = ccDefaultTimeout); Override;
+		// Override this just to avoid problems with abstract virtual methods 
 		Procedure Idle; Override;
+		// Lets handle messages of TStringMessage type
 		Procedure StringMessage(Var aMessage); Message 'tstringmessage';
 	End;
 
-Constructor TConsumerActor.Create(Const aName : String = 'consumer'; CreateSuspended : Boolean = True; Const StackSize : SizeUInt = DefaultStackSize; Const aTimeout : Integer = ccDefaultTimeout);
-Begin
-	Inherited Create(aName, CreateSuspended, StackSize, aTimeout);
-End;
-
 Procedure TConsumerActor.Idle;
 Begin
+	// We have nothing to do if theres no message pending
 End;
 
 Procedure TConsumerActor.StringMessage(Var aMessage);
 Begin
+	// Message received, unbundle it and print it to the screen
 	WriteLn((UnbundleMessage(aMessage) As TStringMessage).Buffer);
+	// DoneMessage will be called automatically
 End;
 
 Var
@@ -59,21 +59,30 @@ Var
 	lLine : String;
 
 Begin
-	TConsumerActor.Create.Start;
+	// Creates the consumer Actor (the switchboard is automatically created)
+	TConsumerActor.Create('consumer').Start;
 	Repeat
+		// Reads a new line
 		ReadLn(lLine);
+		// If the line instructs us to quit, do it
 		If lLine = 'quit' Then
 		Begin
 			WriteLn('Sending terminate message.');
-			Switchboard.Mailbox.Push(TQuitMessage.Create('', ccSwitchboardName));
+			// Asking the switchboard to quit makes it ask all actors to quit too
+			Switchboard.Mailbox.Push(TQuitMessage.Create(ccMainThreadName, ccSwitchboardName));
 		End
-		Else
+		Else // any input other than 'quit' is a message to our consumer
 		Begin
-			lMessage := TStringMessage.Create('', 'consumer');
+			// Creates the message
+			lMessage := TStringMessage.Create(ccMainThreadName, 'consumer');
+			// Add a payload to it
 			lMessage.Buffer := lLine;
+			// Send it to our consumer
 			Switchboard.Mailbox.Push(lMessage);
 		End;
 	Until lLine = 'quit';
+	// Wait for the switchboard to finish (it will take care of the actors quit sequence)
 	Switchboard.Waitfor;
+	// We are done.
 	WriteLn('Done.');
 End.

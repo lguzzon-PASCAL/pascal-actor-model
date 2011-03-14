@@ -94,11 +94,18 @@ Type
 		fSignal       : TEventObject;
 		fActive       : Boolean;
 	Public
+		// This method waits for a new object in the queue during aTimeout time, if it is sucessfull it returns wrSignalled
+		// The result values are the same as for TEventObject.WaitFor
 		Function WaitFor(Const aTimeout : Cardinal): TWaitResult;
+		// This method returns the ammount of objects waiting at the queue
 		Function Count : Integer; 
+		// This method returns true if there are at least aCount objects in the queue
 		Function AtLeast(Const aCount : Integer): Boolean;
+		// This method pushs (inserts) a new object into the queue 
 		Procedure Push(Const aObject : TCustomMessage);
+		// This method pops an object from the queue
 		Function Pop : TCustomMessage;
+		// Standard constructors and destructors
 		Constructor Create;
 		Destructor Destroy; Override;
 	End;
@@ -106,30 +113,54 @@ Type
 	TActorThread = Class(TThread)
 	Private
 		fActorName :  String;
-		fMailbox   : TCustomSynchronizedQueue;
-		fMessage   : TCustomMessage;
-		fRunning   : Boolean;
+		fMailbox : TCustomSynchronizedQueue;
+		fMessage : TCustomMessage;
+		fRunning : Boolean;
 		fFreeToDie : Boolean;
-		fTimeout   : Integer;
+		fTimeout : Integer;
 	Public
+		// This actor name
 		Property ActorName : String Read fActorName;
+		// This actor mailbox
 		Property Mailbox : TCustomSynchronizedQueue Read fMailbox;
+		// The message being currently handled
 		Property Message : TCustomMessage Read fMessage;
+		// True weather the actor is running or preparing to die
 		Property Running : Boolean Read fRunning;
+		// The timeout being used at initmessage
 		Property Timeout : Integer Read fTimeout;
+		// This method reads a message from the message queue, it is blocking so your thread remains stopped until a message arrives
 		Procedure InitMessage; Virtual;
+		// This method frees the current message, you should invoke it when the message is not needed anymore
 		Procedure DoneMessage; Virtual;
+		// This method sends a message to the switchboard to be routed to the correct Actor
 		Procedure Send(Const aMessage : TCustomMessage); Virtual;
+		// This method updates Receiver and Sender accordingly (Sender is the current actor ActorName and receiver is aAddress) and sends it to switchboard
 		Procedure SendTo(Const aAddress : String; aMessage : TCustomMessage);
+		// This method takes the current message addresses and swaps then, use it to reply to a message
 		Procedure Reply(aMessage : TCustomMessage);
+		// This method automatically registers the current thread into the actor system
 		Procedure RegisterMe;
+		// This method automatically unregisters the current thread into the actor system
 		Procedure UnregisterMe;
+		// This method dispatchs the current message via the dispatchstr system
 		Procedure DispatchMessage;
+		// This constructor creates the thread and registers it into the system
+		// aName is the actor name to use
+		// CreateSuspended says weather the thread will be created in suspended or running condition, usually is not needed (its safe to start threads in suspend mode)
+		// StackSize sets the thread stack size, if you know what you are doing, set this parameter accordingly
+		// aTimeout sets the time the thread will sit waiting for a new message to arrive
 		Constructor Create(Const aName : String = ''; CreateSuspended : Boolean = True; Const StackSize : SizeUInt = DefaultStackSize; Const aTimeout : Integer = ccDefaultTimeout); Virtual;
+		// This destructor destroys everything and sends a message to the switchboard to make it know the Actor is dead
 		Destructor Destroy; Override;
+		// This method runs the thread and waits for messages, if you dont need the default behaviour, override it
 		Procedure Execute; Override;
+		// This method gets called repeatedly while the threads waits for messages, you should use it to work assynchronously, set a small timeout (or zero) if you want
+		// this method to be the sleep point of the thread (as in when you wait for a UDP packet or similar blocking task)
 		Procedure Idle; Virtual; Abstract;
+		// This method is usefull to unbundle a message from the aMessage parameter a dispatchstr handler will receive
 		Function UnbundleMessage(Const aMessage): TCustomMessage;
+		// This is a default message handler that quits the thread upon receiving a TQuitMessage message
 		Procedure Quit(Var aMessage); Message 'tquitmessage';
 	End;
 	
