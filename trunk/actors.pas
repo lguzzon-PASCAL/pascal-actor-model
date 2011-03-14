@@ -30,6 +30,7 @@ Uses
 	ContNrs;
 
 Const
+	ccMainThreadName = 'main';
 	ccSwitchboardName = 'switchboard';
 	ccDefaultTimeout = 1000;
 
@@ -151,6 +152,7 @@ Type
 
 Var
 	SwitchBoard : TSwitchBoardActor;
+	MainQueue : TCustomSynchronizedQueue;
 
 Implementation
 
@@ -227,6 +229,8 @@ End;
 
 Destructor TCustomSynchronizedQueue.Destroy;
 Begin
+	While fQueue.AtLeast(1) Do
+		fQueue.Pop.Free;
 	FreeAndNil(fQueue);
 	FreeAndNil(fSynchronizer);
 	FreeAndNil(fSignal);
@@ -394,8 +398,10 @@ Begin
 	Begin
 		InitMessage;
 		If Assigned(Message) Then
-			If Message.Receiver = ActorName Then
+			If Message.Receiver = ccSwitchboardName Then
 				DispatchMessage
+			Else If Message.Receiver = ccMainThreadName Then
+				MainQueue.Push(Message)
 			Else
 				Send(Message);
 	End;
@@ -405,7 +411,7 @@ Begin
 	Begin
 		InitMessage;
 		If Assigned(Message) Then
-			If Message.Receiver = ActorName Then
+			If Message.Receiver = ccSwitchboardName Then
 				DispatchMessage;
 	End;
 End;
@@ -451,12 +457,16 @@ End;
 
 Initialization
 
+	MainQueue := TCustomSynchronizedQueue.Create;
 	SwitchBoard := TSwitchBoardActor.Create;
 	SwitchBoard.Start;
 
 Finalization
 
+	MainQueue.Free;
 	SwitchBoard.Terminate;
 	SwitchBoard.Free;
-
+	While MainQueue.AtLeast(1) Do
+		MainQueue.Pop.Free;
+	
 End.
