@@ -52,7 +52,6 @@ Type
 		Property Sender : String Read fSender Write fSender;
 		Property Receiver : String Read fReceiver Write fReceiver;
 		Constructor Create(Const aSender : String = ''; Const aReceiver : String = ''); Virtual;
-		Function Clone : TCustomMessage; Virtual;
 	End;
 	TCustomMessageClass = Class Of TCustomMessage;
 	
@@ -192,11 +191,6 @@ Begin
 	Inherited Create;
 	fSender := aSender;
 	fReceiver := aReceiver;
-End;
-
-Function TCustomMessage.Clone : TCustomMessage;
-Begin
-	Result := TCustomMessage.Create(fSender, Receiver);
 End;
 
 // TCustomSynchronizedQueue
@@ -399,7 +393,9 @@ Begin
 	Begin
 		lTarget := fInstances.Find((aMessage As TCustomMessage).Receiver);
 		If Assigned(lTarget) Then 
-			(lTarget As TActorThread).MailBox.Push(aMessage);
+			(lTarget As TActorThread).MailBox.Push(aMessage)
+		Else
+			aMessage.Free;
 	End;
 End;
 
