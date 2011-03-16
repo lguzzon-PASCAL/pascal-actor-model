@@ -15,6 +15,8 @@
 	along with Pascal-Actor-Model.  If not, see <http://www.gnu.org/licenses/>.
 }
 
+{$MODE DELPHI}{$M+}{$H+}
+
 Uses
 	{$IFDEF UNIX}
 	CThreads,
