@@ -58,7 +58,6 @@ Type
 	TCustomMessageClass = Class Of TCustomMessage;
 	
 	TQuitMessage = Class(TCustomMessage);
-	TQuitConfirmMessage = Class(TCustomMessage);
 	TTermMessage = Class(TCustomMessage);
 
 	TRegisterInstanceMessage = Class(TCustomMessage)

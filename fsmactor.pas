@@ -50,12 +50,14 @@ Type
 	
 	TCustomTransition = Class
 	Public		
-		Class Function IsTransitOf(Const aOlderState : TCustomStateClass; Const aMessage : TCustomMessage): Boolean; Virtual; Abstract;
+		Class Function IsTransitOf(Const aOlderState : TCustomStateClass; Const aMessage : TCustomMessage): Boolean; Virtual; Abstract; Overload;
+		Class Function IsTransitOf(Const aOlderState, aNewerState : TCustomStateClass): Boolean; Virtual; Abstract; Overload;
 		Class Function Transit(Const aMachine : TCustomStateMachine; Const aMessage : TCustomMessage): TCustomStateClass; Virtual; Abstract;
 	End;
 	
 	TCustomStateMachine = Class(TActorThread)
 	Private
+		fInitialState,
 		fCurrentState        : TCustomStateClass;
 		fPossibleStates      : Array Of TCustomStateClass;
 		fPossibleTransitions : Array Of TCustomTransitionClass;
@@ -65,6 +67,7 @@ Type
 		Procedure AddTransition(Const aTransitionClass : TCustomTransitionClass);
 		Procedure Transit(Const aMessage : TCustomMessage);
 		Procedure DefaultHandlerStr(Var aMessage); Override;
+		Property Initial : TCustomStateClass Read fInitialState Write fInitialState;
 		Property State : TCustomStateClass Read fCurrentState Write fCurrentState;
 	End;
 
@@ -74,12 +77,19 @@ Constructor TCustomStateMachine.Create(Const aName : String = ''; CreateSuspende
 Begin
 	Inherited Create(aName, CreateSuspended, StackSize, aTimeout);
 	fCurrentState := Nil;
+	fInitialState := Nil;
 End;
 
 Procedure TCustomStateMachine.AddState(Const aStateClass : TCustomStateClass);
 Begin
 	SetLength(fPossibleStates, Length(fPossibleStates) + 1);
 	fPossibleStates[High(fPossibleStates)] := aStateClass;
+	If aStateClass.InheritsFrom(TInitialState) Then
+	Begin
+		fInitialState := aStateClass;
+		fCurrentState := fInitialState;
+		fCurrentState.OnEnter(Self, Nil);
+	End;
 End;
 
 Procedure TCustomStateMachine.AddTransition(Const aTransitionClass : TCustomTransitionClass);
@@ -95,12 +105,20 @@ Begin
 	For lCtrl := Low(fPossibleTransitions) To High(fPossibleTransitions) Do
 		If fPossibleTransitions[lCtrl].IsTransitOf(fCurrentState, aMessage) Then
 		Begin
-			If Assigned(fCurrentState) Then
-				fCurrentState.OnLeave(Self, aMessage);
+			fCurrentState.OnLeave(Self, aMessage);
 			fCurrentState := fPossibleTransitions[lCtrl].Transit(Self, aMessage);
-			If Assigned(fCurrentState) Then
-				fCurrentState.OnEnter(Self, aMessage);
+			fCurrentState.OnEnter(Self, aMessage);
+			Break;
 		End;
+	If fCurrentState.InheritsFrom(TFinalState) Then
+		For lCtrl := Low(fPossibleTransitions) To High(fPossibleTransitions) Do
+			If fPossibleTransitions[lCtrl].IsTransitOf(fCurrentState, fInitialState) Then
+			Begin
+				fCurrentState.OnLeave(Self, Nil);
+				fCurrentState := fPossibleTransitions[lCtrl].Transit(Self, Nil);
+				fCurrentState.OnEnter(Self, Nil);
+				Break;
+			End;
 End;
 
 Procedure TCustomStateMachine.DefaultHandlerStr(Var aMessage);
