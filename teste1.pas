@@ -48,7 +48,7 @@ Begin
 		Write('Input something : '); ReadLn(gBuffer);
 		If gBuffer <> 'quit' Then
 		Begin
-			gScreenMessage := TScreenMessage.Create(ccDefaultMainThreadName, 'screen');
+			gScreenMessage := TScreenMessage.Create('localhost', 'screen');
 			gScreenMessage.Data := gBuffer;
 			Switchboard.Mailbox.Push(gScreenMessage);
 		End;

@@ -133,6 +133,8 @@ Procedure RegisterActorClass(Const aClass : TClass);
 Procedure StartActorInstance(Const aClassName, aInstanceName : String);
 Procedure ConfigActor(Const aInstanceName, aVariable : String; Const aValue : Variant);
 
+Procedure ReceiveMessage: TCustomActorMessage;
+
 Implementation
 
 // TActorThread
@@ -624,6 +626,16 @@ Begin
 	lConfig.Name := aVariable;
 	lConfig.Value := aValue;
 	Switchboard.Mailbox.Push(lConfig);
+End;
+
+Procedure ReceiveMessage: TCustomActorMessage;
+Begin
+	Result := Nil;
+	If MainThreadQueue.AtLeast(1) Then
+		Result := fMailbox.Pop
+	Else
+		If MainThreadQueue.WaitFor(ccDefaultTimeout) = wrSignaled Then
+			Result := fMailbox.Pop;
 End;
 
 End.
