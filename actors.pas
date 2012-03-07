@@ -30,14 +30,14 @@ Uses
 	Variants,
 	RTTIObjects,
 	SyncQueue,
-	ActorMessages;
+	ActorMessages,
+	DateUtils;
 
 Const
 	ccDefaultMainThreadName = 'main';
 	ccDefaultSwitchBoardName = 'switchboard';
-	ccDefaultRouter = 'router';
 	ccDefaultLogger = 'logger';
-	ccDefaultTimeout = 10;
+	ccDefaultTimeout = 100;
 
 Type
 	TActorThread = Class;
@@ -61,7 +61,6 @@ Type
 		fMailbox   : TCustomSynchronizedQueue;
 		fMessage   : TCustomActorMessage;
 		fRunning   : Boolean;
-		fFreeToDie : Boolean;
 		fTimeout   : Integer;
 	Public
 		Constructor Create(
@@ -80,8 +79,6 @@ Type
 		Procedure ForwardTo(Const aAddress : String; Const aMessage : TCustomActorMessage); Overload;
 		Procedure ForwardTo(Const aAddress : String); Overload;
 		Procedure Reply(aMessage : TCustomActorMessage);
-		Procedure RegisterMe;
-		Procedure UnregisterMe;
 		Procedure DispatchMessage;
 		// RTTI Handling for config
 		Function GetPropertyIndex(Const aName : String) : Integer;
@@ -90,7 +87,7 @@ Type
 		Procedure InitRTTI;
 		Procedure DoneRTTI;
 		// Message handlers
-		Procedure Quit(Var aMessage); Message 'tquitactormessage';
+		Procedure Quit(Var aMessage); Message 'tterminateactormessage';
 		Procedure ConfigInstance(Var aMessage); Message 'tconfiginstanceactormessage';
 		// Properties
 		Property ActorName : String Read fActorName;
@@ -112,17 +109,15 @@ Type
 		Procedure Route(Const aMessage : TCustomActorMessage); Virtual;
 		Procedure RouteTo(Const aAddress : String; Const aMessage : TCustomActorMessage); Virtual;
 		// Message handlers
-		Procedure RegisterInstance(Var aMessage); Message 'tregisterinstanceactormessage';
-		Procedure UnregisterInstance(Var aMessage); Message 'tunregisterinstanceactormessage';
 		Procedure RegisterClass(Var aMessage); Message 'tregisterclassactormessage';
 		Procedure UnregisterClass(Var aMessage); Message 'tunregisterclassactormessage';
 		Procedure CreateInstance(Var aMessage); Message 'tcreateinstanceactormessage';
-		Procedure InjectMessage(Var aMessage); Message 'tcustomencapsulatedactormessage';
+		Procedure RemoveInstance(Var aMessage); Message 'tremoveactormessage';
 	End;
 
 Var
 	MainThreadName : String;
-	MainQueue : TCustomSynchronizedQueue;
+	MainThreadQueue : TCustomSynchronizedQueue;
 	SwitchBoard : TSwitchBoardActor;
 
 Function UnbundleMessage(Const aMessage): TCustomActorMessage;
@@ -133,7 +128,7 @@ Procedure RegisterActorClass(Const aClass : TClass);
 Procedure StartActorInstance(Const aClassName, aInstanceName : String);
 Procedure ConfigActor(Const aInstanceName, aVariable : String; Const aValue : Variant);
 
-Procedure ReceiveMessage: TCustomActorMessage;
+Function ReceiveMessage: TCustomActorMessage;
 
 Implementation
 
@@ -155,9 +150,8 @@ Begin
 	fTimeout := aTimeout;
 	fMailbox := TCustomSynchronizedQueue.Create;
 	fMessage := Nil;
-	FreeOnTerminate := True;
+	FreeOnTerminate := False;
 	fRunning := True;
-	fFreeToDie  := False;
 	InitRTTI;
 End;
 
@@ -175,19 +169,12 @@ End;
 
 Procedure TActorThread.Execute;
 Begin
-	RegisterMe;
 	Repeat
 		InitMessage;
 		If Assigned(fMessage) Then
 			DispatchMessage;
 	Until fRunning = False;
-	UnregisterMe;
-	Repeat
-		InitMessage;
-		If Assigned(fMessage) And (fMessage Is TTermActorMessage) Then
-			fFreeToDie := True;
-		DoneMessage;
-	Until fFreeToDie;
+	SendTo(Switchboard.ActorName, TRemoveActorMessage.Create(ActorName, Switchboard.ActorName));
 End;
 
 Procedure TActorThread.Idle;
@@ -197,17 +184,18 @@ End;
 Procedure TActorThread.InitMessage;
 Begin
 	fMessage := Nil;
-	Repeat
-		Idle;
-		If fMailbox.AtLeast(1) Then
-			fMessage := fMailbox.Pop
-		Else
+	Idle;
+	If fMailbox.AtLeast(1) Then
+		fMessage := fMailbox.Pop
+	Else
+		If fTimeout > 0 Then
 			If fMailbox.WaitFor(fTimeout) = wrSignaled Then
 				fMessage := fMailbox.Pop
 			Else
-				fMessage := Nil;
-	Until Assigned(fMessage);
-	// Debug WriteLn(Message.ClassName, ' Time to live ', Message.TTL, ' From ', Message.Source, ' To ', Message.Destination, ' my name is ', ActorName);
+				fMessage := Nil
+		Else
+			fMessage := Nil;
+	// Debug If Assigned(Message) Then WriteLn(Message.ClassName, ' Time to live ', Message.TTL, ' From ', Message.Source, ' To ', Message.Destination, ' my name is ', ActorName);
 End;
 
 Procedure TActorThread.DoneMessage;
@@ -246,25 +234,6 @@ Begin
 	aMessage.Source := fActorName;
 	aMessage.Destination := fMessage.Source;
 	Send(aMessage);
-End;
-
-Procedure TActorThread.RegisterMe;
-Var
-	lMessage : TRegisterInstanceActorMessage;
-Begin
-	lMessage := TRegisterInstanceActorMessage.Create(fActorName, SwitchBoard.ActorName);
-	lMessage.Name := ActorName;
-	lMessage.ObjectReference := Self As TObject;
-	SendTo(SwitchBoard.ActorName, lMessage);
-End;
-
-Procedure TActorThread.UnregisterMe;
-Var
-	lMessage : TUnregisterInstanceActorMessage;
-Begin
-	lMessage := TUnregisterInstanceActorMessage.Create(fActorName, SwitchBoard.ActorName);
-	lMessage.Data := ActorName;
-	SendTo(SwitchBoard.ActorName, lMessage);
 End;
 
 Procedure TActorThread.DispatchMessage;
@@ -377,6 +346,8 @@ End;
 Procedure TSwitchBoardActor.Execute;
 Var
 	lCtrl : Integer;
+	lStart : TDateTime;
+	lTimeout : Integer;
 Begin
 	While Running Do
 	Begin
@@ -387,14 +358,11 @@ Begin
 				DispatchMessage
 			Else If Message.Destination = MainThreadName Then
 			Begin
-				MainQueue.Push(Message);
+				MainThreadQueue.Push(Message);
 				Message := Nil;
 			End
 			Else
-			Begin
 				Route(Message);
-				Message := Nil;
-			End;
 		End;
 		DoneMessage;
 	End;
@@ -402,26 +370,17 @@ Begin
 	For lCtrl := 0 To fInstances.Count - 1 Do
 	Begin
 		// Debug WriteLn('Asking ', (fInstances.Items[lCtrl] As TActorThread).ActorName, ' to quit.');
-		((fInstances.Items[lCtrl] As TActorThread) As TActorThread).Mailbox.Push(TQuitActorMessage.Create(ActorName, (fInstances.Items[lCtrl] As TActorThread).ActorName));
+		((fInstances.Items[lCtrl] As TActorThread) As TActorThread).Mailbox.Push(TTerminateActorMessage.Create(ActorName, (fInstances.Items[lCtrl] As TActorThread).ActorName));
 	End;
-	While fInstances.Count > 0 Do
+	lStart := Now;
+	lTimeout := 0;
+	While (fInstances.Count > 0) And (lTimeout <= ccDefaultTimeout * 10) Do
 	Begin
 		InitMessage;
-		If Assigned(Message) And Not(Message Is TCreateInstanceActorMessage) Then
-		Begin
-			If Message.Destination = ActorName Then
-				DispatchMessage
-			Else If Message.Destination = MainThreadName Then
-			Begin
-				MainQueue.Push(Message);
-				Message := Nil;
-			End
-			Else
-			Begin
-				Route(Message);
-				Message := Nil;
-			End;
-		End;
+		lTimeout := MilliSecondsBetween(Now, lStart);
+		// Debug  WriteLn(Message.Source, ':', Message.Destination, ' -> ', Message.ClassName, ' at ', lTimeout);
+		If Message Is TRemoveActorMessage Then
+			DispatchMessage;
 		DoneMessage;
 	End;
 End;
@@ -434,57 +393,15 @@ End;
 Procedure TSwitchBoardActor.RouteTo(Const aAddress : String; Const aMessage : TCustomActorMessage);
 Var
 	lTarget : TObject;
-	lError : TErrorActorMessage;
 Begin
 	If Assigned(aMessage) Then
 	Begin
-		aMessage.DecreaseTTL;
-		If aMessage.IsTTLTimeout Then
-		Begin
-			lError := TErrorActorMessage.Create(ActorName, 'screen1');
-			lError.Data := 'Message TTL expired. ' + aMessage.Source + ':' + aMessage.Destination;
-			Mailbox.Push(lError);
-			aMessage.Free;
-		End;
 		lTarget := fInstances.Find(aAddress);
 		If Assigned(lTarget) Then 
-			(lTarget As TActorThread).MailBox.Push(aMessage)
-		Else
 		Begin
-			// Debug  WriteLn('Couldnt find instance ', aAddress, ', trying to route via default router.');
-			lTarget := fInstances.Find(ccDefaultRouter);
-			If Assigned(lTarget) Then 
-				(lTarget As TActorThread).MailBox.Push(aMessage)
-			Else
-			Begin
-				// Debug  WriteLn('No router found, trying to loopback. TTL := ', aMessage.TTL);
-					Mailbox.Push(aMessage);
-			End;
+			(lTarget As TActorThread).MailBox.Push(aMessage);
+			fMessage := Nil;
 		End;
-	End;
-End;
-
-Procedure TSwitchBoardActor.RegisterInstance(Var aMessage);
-Var
-	lMessage : TRegisterInstanceActorMessage;
-Begin
-	lMessage := UnbundleMessage(aMessage) As TRegisterInstanceActorMessage;
-	// Debug  WriteLn('Appending ', lMessage.Name, ' to our list of active actors.');
-	fInstances.Add(lMessage.Name, lMessage.ObjectReference);
-End;
-
-Procedure TSwitchBoardActor.UnregisterInstance(Var aMessage);
-Var
-	lInstance : TActorThread;
-	lMessage : TUnregisterInstanceActorMessage;
-Begin
-	Try
-		lMessage := UnbundleMessage(aMessage) As TUnregisterInstanceActorMessage;
-		lInstance := (fInstances.Find(lMessage.Source) As TActorThread);
-		fInstances.Remove(lInstance);
-		lInstance.Mailbox.Push(TTermActorMessage.Create(ActorName, lInstance.ActorName));
-	Except
-		On E: Exception Do ;
 	End;
 End;
 
@@ -516,39 +433,29 @@ Procedure TSwitchBoardActor.CreateInstance(Var aMessage);
 Var
 	lCtrl : Integer;
 	lMessage : TCreateInstanceActorMessage;
-	lClass : TActorThreadClass;
+	lActor : TActorThread;
 Begin
 	lMessage := UnbundleMessage(aMessage) As TCreateInstanceActorMessage;
 	For lCtrl := 0 To fClasses.Count - 1 Do
 		If LowerCase(fClasses.Items[lCtrl].ClassName) = LowerCase(lMessage.NameOfClass) Then
 		Begin
 			// Debug WriteLn('Creating a instance of ', lMessage.NameOfClass, ' named ', lMessage.NameOfInstance);
-			lClass := TActorThreadClass(fClasses.Items[lCtrl]);
-			lClass.Create(lMessage.NameOfInstance);
+			lActor := TActorThreadClass(fClasses.Items[lCtrl]).Create(lMessage.NameOfInstance, True);
+			lActor.Start;
+			fInstances.Add(lActor.ActorName, lActor);
 			Break;
 		End;
 End;
 
-Procedure TSwitchBoardActor.InjectMessage(Var aMessage);
+Procedure TSwitchBoardActor.RemoveInstance(Var aMessage);
 Var
-	lMessage : TCustomEncapsulatedActorMessage;
-	lTarget : TActorThread;
+	lMessage : TRemoveActorMessage;
+	lIndex : Integer;
 Begin
-	lMessage := UnbundleMessage(aMessage) As TCustomEncapsulatedActorMessage;
-	If (lMessage.Encapsulated.Destination = ActorName) Or (lMessage.Encapsulated.Destination = MainThreadName) Then
-	Begin
-		Mailbox.Push(lMessage.Encapsulated);
-		lMessage.Encapsulated := Nil;
-	End
-	Else
-	Begin
-		lTarget := fInstances.Find(lMessage.Encapsulated.Destination) As TActorThread;
-		If Assigned(lTarget) Then 
-		Begin
-			(lTarget As TActorThread).MailBox.Push(lMessage.Encapsulated);
-			lMessage.Encapsulated := Nil;
-		End;
-	End;
+	lMessage := UnbundleMessage(aMessage) As TRemoveActorMessage;
+	lIndex := fInstances.FindIndexOf(lMessage.Source);
+	If lIndex >= 0 Then
+		fInstances.Delete(lIndex);
 End;
 
 Function UnbundleMessage(Const aMessage): TCustomActorMessage;
@@ -558,44 +465,17 @@ End;
 
 Procedure Init(Const aLocalName : String = ccDefaultMainThreadName; Const aLocalSwitchboardName : String = ccDefaultSwitchBoardName);
 Begin
-	ActorMessageClassFactory.RegisterMessage(TCustomActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TCustomEncapsulatedActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TForeignActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TCustomStringActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TCustomNameValueActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TCustomStreamActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TCustomObjectReferenceActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TCustomClassReferenceActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TCustomNamedObjectReferenceActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TCustomNamedClassReferenceActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TSetTargetActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TAddTargetActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TDeleteTargetActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TRegisterInstanceActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TUnregisterInstanceActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TQuitActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TTermActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TCreateInstanceActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TConfigInstanceActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TRegisterClassActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TUnregisterClassActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TCustomLogActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TLogActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TWarningActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TErrorActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TDebugActorMessage);
-	ActorMessageClassFactory.RegisterMessage(TInfoActorMessage);
 	MainThreadName := aLocalName;
-	MainQueue := TCustomSynchronizedQueue.Create;
-	SwitchBoard := TSwitchBoardActor.Create(aLocalSwitchboardName);
+	MainThreadQueue := TCustomSynchronizedQueue.Create;
+	SwitchBoard := TSwitchBoardActor.Create(aLocalSwitchboardName, True);
 	SwitchBoard.Start;
 End;
 
 Procedure Fini;
 Begin
-	SwitchBoard.MailBox.Push(TQuitActorMessage.Create(MainThreadName, SwitchBoard.ActorName));
+	SwitchBoard.MailBox.Push(TTerminateActorMessage.Create(MainThreadName, SwitchBoard.ActorName));
 	SwitchBoard.WaitFor;
-	FreeAndNil(MainQueue);
+	FreeAndNil(MainThreadQueue);
 	FreeAndNil(SwitchBoard);
 End;
 
@@ -628,14 +508,14 @@ Begin
 	Switchboard.Mailbox.Push(lConfig);
 End;
 
-Procedure ReceiveMessage: TCustomActorMessage;
+Function ReceiveMessage: TCustomActorMessage;
 Begin
 	Result := Nil;
 	If MainThreadQueue.AtLeast(1) Then
-		Result := fMailbox.Pop
+		Result := MainThreadQueue.Pop
 	Else
 		If MainThreadQueue.WaitFor(ccDefaultTimeout) = wrSignaled Then
-			Result := fMailbox.Pop;
+			Result := MainThreadQueue.Pop;
 End;
 
 End.
