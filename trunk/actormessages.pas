@@ -39,17 +39,13 @@ Type
 	Private
 		fSource,
 		fDestination : String;
-		fTTL : Integer;
 	Public
 		Constructor Create(Const aSource, aDestination : String); Virtual;
 		Destructor Destroy; Override;
 		Function Clone : TCustomActorMessage; Virtual;
-		Procedure DecreaseTTL;
-		Function IsTTLTimeout: Boolean;
 	Published
 		Property Source : String Read fSource Write fSource;
 		Property Destination : String Read fDestination Write fDestination;
-		Property TTL : Integer Read fTTL Write fTTL;
 	End;
 
 	TCustomActorMessageClass = Class Of TCustomActorMessage;
@@ -140,11 +136,8 @@ Type
 
 	// Instance creation/destruction related messages
 
-	TRegisterInstanceActorMessage = Class(TCustomNamedObjectReferenceActorMessage);
-	TUnregisterInstanceActorMessage = Class(TCustomStringActorMessage);
-
-	TQuitActorMessage = Class(TCustomActorMessage);
-	TTermActorMessage = Class(TCustomActorMessage);
+	TTerminateActorMessage = Class(TCustomActorMessage);
+	TRemoveActorMessage = Class(TCustomActorMessage);
 
 	TCreateInstanceActorMessage = Class(TCustomActorMessage)
 	Private
@@ -181,7 +174,6 @@ Type
 
 Var
 	ActorMessageClassFactory : TActorMessageClassFactory;
-	DefaultActorMessageTTL : Integer;
 
 Implementation
 
@@ -192,13 +184,11 @@ Begin
 	Inherited Create;
 	fSource := aSource;
 	fDestination := aDestination;
-	fTTL := DefaultActorMessageTTL;
 	InitRTTI;
 End;
 
 Destructor TCustomActorMessage.Destroy;
 Begin
-	fTTL := 0;
 	DoneRTTI;
 	Inherited Destroy;
 End;
@@ -208,17 +198,6 @@ Begin
 	Result := ActorMessageClassFactory.Build(Self.ClassName);
 	Result.Source := Source;
 	Result.Destination := Destination;
-	Result.TTL := TTL;
-End;
-
-Procedure TCustomActorMessage.DecreaseTTL;
-Begin
-	Dec(fTTL);
-End;
-
-Function TCustomActorMessage.IsTTLTimeout: Boolean;
-Begin
-	Result := fTTL <= 0;
 End;
 
 // TCustomEncapsulatedActorMessage
@@ -332,7 +311,31 @@ End;
 Initialization
 
 	ActorMessageClassFactory := TActorMessageClassFactory.Create;
-	DefaultActorMessageTTL := 10;
+	ActorMessageClassFactory.RegisterMessage(TCustomActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TCustomEncapsulatedActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TForeignActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TCustomStringActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TCustomNameValueActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TCustomStreamActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TCustomObjectReferenceActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TCustomClassReferenceActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TCustomNamedObjectReferenceActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TCustomNamedClassReferenceActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TSetTargetActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TAddTargetActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TDeleteTargetActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TTerminateActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TRemoveActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TCreateInstanceActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TConfigInstanceActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TRegisterClassActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TUnregisterClassActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TCustomLogActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TLogActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TWarningActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TErrorActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TDebugActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TInfoActorMessage);
 
 Finalization
 

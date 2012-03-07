@@ -1,3 +1,18 @@
+{
+  This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; version 2 of the License.
+   
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+}
+
+// Copyright (c) 2010 2011 - J. Aldo G. de Freitas Junior
+
+{$MODE DELPHI}{$M+}{$H+}
+
 Uses
 	{$IFDEF UNIX}
 	CThreads,
@@ -30,11 +45,10 @@ Var
 	gScreenMessage : TScreenMessage;
 
 Begin
-	DefaultActorMessageTTL := 1000000; // things are rough at startup, lets make messages float around forever
+	ActorMessageClassFactory.RegisterMessage(TScreenMessage);
 	Actors.Init('localhost', 'switchboard');
 	ActorLogger.Init;
 	CustomActors.Init;
-	ActorMessageClassFactory.RegisterMessage(TScreenMessage);
 	RegisterActorClass(TScreenWriterActor);
 	StartActorInstance('TScreenWriterActor', 'screen1');
 	StartActorInstance('TScreenWriterActor', 'screen2');
@@ -43,7 +57,6 @@ Begin
 	AddTargetToActor('screen', 'screen1');
 	AddTargetToActor('screen', 'screen2');
 	AddTargetToActor('screen', 'screen3');
-	DefaultActorMessageTTL := 5; // everything should be quick from now on.
 	Repeat
 		Write('Input something : '); ReadLn(gBuffer);
 		If gBuffer <> 'quit' Then
