@@ -22,7 +22,8 @@ Interface
 Uses
 	Classes,
 	SysUtils,
-	RTTIObjects;
+	RTTIObjects,
+	Contnrs;
 
 Type
 
@@ -167,7 +168,7 @@ Type
 
 	TActorMessageClassFactory = Class(TObject)
 	Private
-		fClasses : Array Of TCustomActorMessageClass;
+		fClasses : TFPHashList;
 	Public
 		Procedure RegisterMessage(Const aClass : TCustomActorMessageClass);
 		Function Build(Const aClassName : String): TCustomActorMessage;
@@ -292,21 +293,17 @@ End;
 
 Procedure TActorMessageClassFactory.RegisterMessage(Const aClass : TCustomActorMessageClass);
 Begin
-	SetLength(fClasses, Length(fClasses) + 1);
-	fClasses[High(fClasses)] := aClass;
+	fClasses.Add(aClass.ClassName, Pointer(aClass));
 End;
 
 Function TActorMessageClassFactory.Build(Const aClassName : String): TCustomActorMessage;
 Var
-	lCtrl : Integer;
+	lIndex : Integer;
 Begin
 	Result := Nil;
-	For lCtrl := Low(fClasses) To High(fClasses) Do
-		If LowerCase(fClasses[lCtrl].ClassName) = LowerCase(aClassName) Then
-		Begin
-			Result := TCustomActorMessageClass(fClasses[lCtrl]).Create('', '');
-			Exit;
-		End;
+	lIndex := fClasses.FindIndexOf(aClassName);
+	If lIndex >= 0 Then
+		Result := TCustomActorMessageClass(fClasses.Items[lIndex]).Create('', '');
 End;
 
 Initialization
