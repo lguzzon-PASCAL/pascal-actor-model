@@ -462,6 +462,7 @@ Begin
 	lIndex := fInstances.FindIndexOf(lMessage.Source);
 	If lIndex >= 0 Then
 	Begin
+		(fInstances.Items[lIndex] As TActorThread).Terminate;
 		fInstances.Items[lIndex].Free;
 		fInstances.Delete(lIndex);
 	End;
