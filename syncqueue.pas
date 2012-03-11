@@ -9,9 +9,10 @@
   GNU General Public License for more details.
 }
 
-// Copyright (c) 2010 2011 - J. Aldo G. de Freitas Junior
+// Copyright (c) 2010 2011 2012 - J. Aldo G. de Freitas Junior
 
-{$MODE DELPHI}
+{$mode objfpc}
+{$H+}{$M+}
 
 Unit
 	SyncQueue;
@@ -30,10 +31,10 @@ Type
 
 	TCustomSynchronizedQueue = Class
 	Private
-		fQueue        : TObjectQueue;
+		fQueue	  : TObjectQueue;
 		fSynchronizer : TMultiReadExclusiveWriteSynchronizer;
-		fSignal       : TEventObject;
-		fActive       : Boolean;
+		fSignal	: TEventObject;
+		fActive	: Boolean;
 	Public
 		Function WaitFor(Const aTimeout : Cardinal): TWaitResult;
 		Function Count : Integer; 

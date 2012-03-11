@@ -9,9 +9,10 @@
   GNU General Public License for more details.
 }
 
-// Copyright (c) 2010 2011 - J. Aldo G. de Freitas Junior
+// Copyright (c) 2010 2011 2012 - J. Aldo G. de Freitas Junior
 
-{$MODE DELPHI}{$M+}{$H+}
+{$mode objfpc}
+{$H+}{$M+}
 
 Unit
 	Actors;
@@ -249,20 +250,20 @@ End;
 Procedure TActorThread.SetPropertyValueByName(Const aName : String; Const aValue : Variant);
 Begin
 	Case GetPropertyType(GetPropertyIndex(aName)) Of
-		tkInteger     : SetOrdProp(Self, aName, aValue);
-		tkChar        : SetStrProp(Self, aName, aValue);
+		tkInteger	 : SetOrdProp(Self, aName, aValue);
+		tkChar		: SetStrProp(Self, aName, aValue);
 		tkEnumeration : SetEnumProp(Self, aName, aValue);
-		tkFloat       : SetFloatProp(Self, aName, aValue);
-		tkSet         : SetSetProp(Self, aName, aValue);
-		tkSString     : SetStrProp(Self, aName, aValue);
-		tkLString     : SetStrProp(Self, aName, aValue);
-		tkAString     : SetStrProp(Self, aName, aValue);
-		tkWString     : SetStrProp(Self, aName, aValue);
-		tkVariant     : SetVariantProp(Self, aName, aValue);
-		tkWChar       : SetWideStrProp(Self, aName, aValue);
-		tkBool        : SetEnumProp(Self, aName, aValue);
-		tkInt64       : SetInt64Prop(Self, aName, aValue);
-		tkQWord       : SetInt64Prop(Self, aName, aValue);
+		tkFloat	   : SetFloatProp(Self, aName, aValue);
+		tkSet		 : SetSetProp(Self, aName, aValue);
+		tkSString	 : SetStrProp(Self, aName, aValue);
+		tkLString	 : SetStrProp(Self, aName, aValue);
+		tkAString	 : SetStrProp(Self, aName, aValue);
+		tkWString	 : SetStrProp(Self, aName, aValue);
+		tkVariant	 : SetVariantProp(Self, aName, aValue);
+		tkWChar	   : SetWideStrProp(Self, aName, aValue);
+		tkBool		: SetEnumProp(Self, aName, aValue);
+		tkInt64	   : SetInt64Prop(Self, aName, aValue);
+		tkQWord	   : SetInt64Prop(Self, aName, aValue);
 	End;
 End;
 
@@ -332,7 +333,7 @@ Begin
 	Inherited Create(aName, CreateSuspended, StackSize, aTimeout);
 	FreeOnTerminate := False;
 	fInstances := TFPHashObjectList.Create;
-	fInstances.OwnsObjects := False;
+	fInstances.OwnsObjects := True;
 	fClasses := TClassList.Create;
 End;
 
@@ -370,7 +371,7 @@ Begin
 	For lCtrl := 0 To fInstances.Count - 1 Do
 	Begin
 		// Debug WriteLn('Asking ', (fInstances.Items[lCtrl] As TActorThread).ActorName, ' to quit.');
-		((fInstances.Items[lCtrl] As TActorThread) As TActorThread).Mailbox.Push(TTerminateActorMessage.Create(ActorName, (fInstances.Items[lCtrl] As TActorThread).ActorName));
+		(fInstances.Items[lCtrl] As TActorThread).Mailbox.Push(TTerminateActorMessage.Create(ActorName, (fInstances.Items[lCtrl] As TActorThread).ActorName));
 	End;
 	lStart := Now;
 	lTimeout := 0;
@@ -382,6 +383,11 @@ Begin
 		If Message Is TRemoveActorMessage Then
 			DispatchMessage;
 		DoneMessage;
+	End;
+	For lCtrl := 0 To fInstances.Count - 1 Do
+	Begin
+		// Debug WriteLn('Asking ', (fInstances.Items[lCtrl] As TActorThread).ActorName, ' to quit.');
+		(fInstances.Items[lCtrl] As TActorThread).Terminate;
 	End;
 End;
 
@@ -455,7 +461,10 @@ Begin
 	lMessage := UnbundleMessage(aMessage) As TRemoveActorMessage;
 	lIndex := fInstances.FindIndexOf(lMessage.Source);
 	If lIndex >= 0 Then
+	Begin
+		fInstances.Items[lIndex].Free;
 		fInstances.Delete(lIndex);
+	End;
 End;
 
 Function UnbundleMessage(Const aMessage): TCustomActorMessage;

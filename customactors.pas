@@ -9,9 +9,10 @@
   GNU General Public License for more details.
 }
 
-// Copyright (c) 2010 2011 - J. Aldo G. de Freitas Junior
+// Copyright (c) 2010 2011 2012 - J. Aldo G. de Freitas Junior
 
-{$MODE DELPHI}{$M+}{$H+}
+{$mode objfpc}
+{$H+}{$M+}
 
 Unit
 	CustomActors;
