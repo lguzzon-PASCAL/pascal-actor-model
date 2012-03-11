@@ -170,6 +170,8 @@ Type
 	Private
 		fClasses : TFPHashList;
 	Public
+		Constructor Create;
+		Destructor Destroy; Override;
 		Procedure RegisterMessage(Const aClass : TCustomActorMessageClass);
 		Function Build(Const aClassName : String): TCustomActorMessage;
 	End;
@@ -290,6 +292,18 @@ Begin
 End;
 
 // TActorMessageClassFactory
+
+Constructor TActorMessageClassFactory.Create;
+Begin
+	Inherited Create;
+	fClasses := TFPHashList.Create;
+End;
+
+Destructor TActorMessageClassFactory.Destroy;
+Begin
+	FreeAndNil(fClasses);
+	Inherited Destroy;
+End;
 
 Procedure TActorMessageClassFactory.RegisterMessage(Const aClass : TCustomActorMessageClass);
 Begin

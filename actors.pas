@@ -151,18 +151,13 @@ Begin
 	fTimeout := aTimeout;
 	fMailbox := TCustomSynchronizedQueue.Create;
 	fMessage := Nil;
-	FreeOnTerminate := False;
+	FreeOnTerminate := True;
 	fRunning := True;
 	InitRTTI;
 End;
 
 Destructor TActorThread.Destroy;
 Begin
-	While fMailbox.AtLeast(1) Do
-	Begin
-		InitMessage;
-		DoneMessage;
-	End;
 	FreeAndNil(fMailbox);
 	DoneRTTI;
 	Inherited Destroy;
@@ -331,9 +326,9 @@ Constructor TSwitchBoardActor.Create(
 	);
 Begin
 	Inherited Create(aName, CreateSuspended, StackSize, aTimeout);
-	FreeOnTerminate := False;
+	FreeOnTerminate := True;
 	fInstances := TFPHashObjectList.Create;
-	fInstances.OwnsObjects := True;
+	fInstances.OwnsObjects := False;
 	fClasses := TFPHashList.Create;
 End;
 
@@ -386,7 +381,7 @@ Begin
 	End;
 	For lCtrl := 0 To fInstances.Count - 1 Do
 	Begin
-		// Debug WriteLn('Asking ', (fInstances.Items[lCtrl] As TActorThread).ActorName, ' to quit.');
+		// Debug WriteLn('Forcefully making ', (fInstances.Items[lCtrl] As TActorThread).ActorName, ' quit.');
 		(fInstances.Items[lCtrl] As TActorThread).Terminate;
 	End;
 End;
@@ -456,7 +451,6 @@ Begin
 	If lIndex >= 0 Then
 	Begin
 		(fInstances.Items[lIndex] As TActorThread).Terminate;
-		fInstances.Items[lIndex].Free;
 		fInstances.Delete(lIndex);
 	End;
 End;
@@ -479,7 +473,6 @@ Begin
 	SwitchBoard.MailBox.Push(TTerminateActorMessage.Create(MainThreadName, SwitchBoard.ActorName));
 	SwitchBoard.WaitFor;
 	FreeAndNil(MainThreadQueue);
-	FreeAndNil(SwitchBoard);
 End;
 
 Procedure RegisterActorClass(Const aClass : TClass);
