@@ -9,21 +9,24 @@
   GNU General Public License for more details.
 }
 
-// Copyright (c) 2010 2011 - J. Aldo G. de Freitas Junior
+// Copyright (c) 2010 2011 2012 - J. Aldo G. de Freitas Junior
+
+{$mode objfpc}
+{$H+}{$M+}
 
 Unit
 	RTTIObjects;
 
 Interface
 
-{$MODE DELPHI}{$M+}{$H+}
-
 Uses
 	Classes,
 	Contnrs,
 	StrUtils,
 	SysUtils,
-	TypInfo;
+	TypInfo,
+	NameValue,
+	Variants;
 
 Const
 	tiStreamable : Set Of TTypeKind = [
@@ -46,11 +49,18 @@ Const
 Type
 	TArrayOfString = Array Of String;
 
+	TRTTIEvent = Record
+		MsgStr : String[255];
+		Data : Pointer;
+	End;
+
+	ERTTIObject = Class(Exception);
 	TRTTIObject = Class(TObject)
 	Private
 		fTypeData : PTypeData;
 		fPropList : PPropList;
 		fCount : Integer;
+		fReadOnly : Boolean;
 		Function GetPropertyValueByIndex(Const aIndex : Integer) : Variant;
 		Procedure SetPropertyValueByIndex(Const aIndex : Integer; Const aValue : Variant);
 		Function GetPropertyValueByName(Const aName : String) : Variant;
@@ -62,16 +72,27 @@ Type
 		Function GetPropertyTypeName(Const aIndex : Integer) : String;
 		Function IsObjectProperty(Const aIndex : Integer) : Boolean;
 		Function GetEnumPropertyPossibleValues(Const aName : String): TArrayOfString;
+		Function HasProperty(Const aName : String): Boolean;
+		Function Match(Const aNameValue : TNameValue): Boolean;
+		Procedure InitRTTI;
+		Procedure DoneRTTI;
+		Procedure InitRTTIFromStream(Const aStream : TStream); Virtual;
+		Procedure SaveRTTIToStream(Const aStream : TStream); Virtual;
+		Procedure InitRTTIFromString(Const aString : String); Virtual;
+		Function SaveRTTIToString: String; Virtual;
+		Procedure InitRTTIFromNameValuePairs(Const aNameValue : TNameValue);
+		Function SaveRTTIToNameValuePairs: TNameValue;
+		Function FormattedProperties: String;
+		Procedure DispatchEvent(Const aEventName : String; Const aObject : TObject);
+		// Properties
 		Property Properties[aName : String] : Variant Read GetPropertyValueByName Write SetPropertyValueByName;
 		Property PropertiesByIndex[aIndex : Integer] : Variant Read GetPropertyValueByIndex Write SetPropertyValueByIndex;
 		Property PropertyCount : Integer Read fCount;
-		Procedure InitRTTI;
-		Procedure DoneRTTI;
-		Procedure InitRTTIFromStream(Const aStream : TStream);
-		Procedure SaveRTTIToStream(Const aStream : TStream);
-		Procedure InitRTTIFromString(Const aString : String);
-		Function SaveRTTIToString: String;
+		Property ReadOnly : Boolean Read fReadOnly Write fReadOnly;
 	End;
+
+Function GetClassFromStream(Const aStream : TStream): String;
+Function GetClassFromString(Const aString : String): String;
 
 Implementation
 
@@ -79,52 +100,82 @@ Implementation
 
 Function TRTTIObject.GetPropertyValueByIndex(Const aIndex : Integer) : Variant;
 Begin
-	Result := GetPropertyValueByName(GetPropertyName(aIndex));
+	If (aIndex >= 0) And (aIndex < PropertyCount) Then
+		Result := GetPropertyValueByName(GetPropertyName(aIndex))
+	Else
+		Raise ERTTIObject.Create('No such property index.');
 End;
 
 Procedure TRTTIObject.SetPropertyValueByIndex(Const aIndex : Integer; Const aValue : Variant);
 Begin
-	SetPropertyValueByName(GetPropertyName(aIndex), aValue);
+	If Not fReadOnly Then
+		If (aIndex >= 0) And (aIndex < PropertyCount) Then
+			SetPropertyValueByName(GetPropertyName(aIndex), aValue)
+		Else
+			Raise ERTTIObject.Create('No such property index.')
+	Else
+		Raise ERTTIOBject.Create('Read only object.');
 End;
 
 Function TRTTIObject.GetPropertyValueByName(Const aName : String) : Variant;
+Var
+	lIndex : Integer;
 Begin
-	Case GetPropertyType(GetPropertyIndex(aName)) Of
-		tkInteger     : Result := GetInt64Prop(Self, aName);
-		tkChar        : Result := GetStrProp(Self, aName);
-		tkEnumeration : Result := GetEnumProp(Self, aName);
-		tkFloat       : Result := GetFloatProp(Self, aName);
-		tkSet         : Result := GetSetProp(Self, aName, True);
-		tkSString     : Result := GetStrProp(Self, aName);
-		tkLString     : Result := GetStrProp(Self, aName);
-		tkAString     : Result := GetStrProp(Self, aName);
-		tkWString     : Result := GetWideStrProp(Self, aName);
-		tkVariant     : Result := GetVariantProp(Self, aName);
-		tkWChar       : Result := GetWideStrProp(Self, aName);
-		tkBool        : Result := GetEnumProp(Self, aName);
-		tkInt64       : Result := GetInt64Prop(Self, aName);
-		tkQWord       : Result := GetInt64Prop(Self, aName);
-	End;
+	lIndex := GetPropertyIndex(aName);
+	If (lIndex >= 0) And (lIndex < PropertyCount) Then
+	Begin
+		Case GetPropertyType(lIndex) Of
+			tkInteger     : Result := GetInt64Prop(Self, aName);
+			tkChar        : Result := GetStrProp(Self, aName);
+			tkEnumeration : Result := GetEnumProp(Self, aName);
+			tkFloat       : Result := GetFloatProp(Self, aName);
+			tkSet         : Result := GetSetProp(Self, aName, True);
+			tkSString     : Result := GetStrProp(Self, aName);
+			tkLString     : Result := GetStrProp(Self, aName);
+			tkAString     : Result := GetStrProp(Self, aName);
+			tkWString     : Result := GetWideStrProp(Self, aName);
+			tkVariant     : Result := GetVariantProp(Self, aName);
+			tkWChar       : Result := GetWideStrProp(Self, aName);
+			tkBool        : Result := GetEnumProp(Self, aName);
+			tkInt64       : Result := GetInt64Prop(Self, aName);
+			tkQWord       : Result := GetInt64Prop(Self, aName);
+		End;
+	End
+	Else
+		Raise ERTTIObject.Create('No such property ' + aName);
 End;
 
 Procedure TRTTIObject.SetPropertyValueByName(Const aName : String; Const aValue : Variant);
+Var
+	lIndex : Integer;
 Begin
-	Case GetPropertyType(GetPropertyIndex(aName)) Of
-		tkInteger     : SetOrdProp(Self, aName, aValue);
-		tkChar        : SetStrProp(Self, aName, aValue);
-		tkEnumeration : SetEnumProp(Self, aName, aValue);
-		tkFloat       : SetFloatProp(Self, aName, aValue);
-		tkSet         : SetSetProp(Self, aName, aValue);
-		tkSString     : SetStrProp(Self, aName, aValue);
-		tkLString     : SetStrProp(Self, aName, aValue);
-		tkAString     : SetStrProp(Self, aName, aValue);
-		tkWString     : SetStrProp(Self, aName, aValue);
-		tkVariant     : SetVariantProp(Self, aName, aValue);
-		tkWChar       : SetWideStrProp(Self, aName, aValue);
-		tkBool        : SetEnumProp(Self, aName, aValue);
-		tkInt64       : SetInt64Prop(Self, aName, aValue);
-		tkQWord       : SetInt64Prop(Self, aName, aValue);
-	End;
+	If Not fReadOnly Then
+	Begin
+		lIndex := GetPropertyIndex(aName);
+		If (lIndex >= 0) And (lIndex < PropertyCount) Then
+		Begin
+			Case GetPropertyType(GetPropertyIndex(aName)) Of
+				tkInteger     : SetOrdProp(Self, aName, aValue);
+				tkChar        : SetStrProp(Self, aName, aValue);
+				tkEnumeration : SetEnumProp(Self, aName, aValue);
+				tkFloat       : SetFloatProp(Self, aName, aValue);
+				tkSet         : SetSetProp(Self, aName, aValue);
+				tkSString     : SetStrProp(Self, aName, aValue);
+				tkLString     : SetStrProp(Self, aName, aValue);
+				tkAString     : SetStrProp(Self, aName, aValue);
+				tkWString     : SetStrProp(Self, aName, aValue);
+				tkVariant     : SetVariantProp(Self, aName, aValue);
+				tkWChar       : SetWideStrProp(Self, aName, aValue);
+				tkBool        : SetEnumProp(Self, aName, aValue);
+				tkInt64       : SetInt64Prop(Self, aName, aValue);
+				tkQWord       : SetInt64Prop(Self, aName, aValue);
+			End;
+		End
+		Else
+			Raise ERTTIObject.Create('No such property ' + aName);
+	End
+	Else
+		Raise ERTTIObject.Create('Cannot set property, the object is read-only.');
 End;
 
 Function TRTTIObject.GetPropertyIndex(Const aName : String) : Integer;
@@ -170,6 +221,31 @@ Begin
 		SetLength(Result, Length(Result) + 1);
 		Result[High(Result)] := GetEnumName(FindPropInfo(Self, aName)^.PropType, lCtrl);
 	End;
+End;
+
+Function TRTTIObject.HasProperty(Const aName : String): Boolean;
+Begin
+	Result := GetPropertyIndex(aName) >= 0;
+End;
+
+Function TRTTIObject.Match(Const aNameValue : TNameValue): Boolean;
+Var
+	lCtrl : Integer;
+Begin
+	For lCtrl := Low(aNameValue.Pairs) To High(aNameValue.Pairs) Do
+		If HasProperty(aNameValue.Pairs[lCtrl].Name) Then
+			If GetPropertyValueByName(aNameValue.Pairs[lCtrl].Name) = aNameValue.Pairs[lCtrl].Value Then
+				Result := True
+			Else
+			Begin
+				Result := False;
+				Break;
+			End
+		Else
+		Begin
+			Result := False;
+			Break;
+		End;
 End;
 
 Procedure TRTTIObject.InitRTTI;
@@ -324,6 +400,67 @@ Begin
 		lStringStream := TStringStream.Create('');
 		SaveRTTIToStream(lStringStream);
 		Result := lStringStream.DataString;
+	Finally
+		lStringStream.Free;
+	End;
+End;
+
+Procedure TRTTIObject.InitRTTIFromNameValuePairs(Const aNameValue : TNameValue);
+Var
+	lCtrl : Integer;
+Begin
+	For lCtrl := Low(aNameValue.Pairs) To High(aNameValue.Pairs) Do
+		Properties[aNameValue.Pairs[lCtrl].Name] := aNameValue.Pairs[lCtrl].Value;
+End;
+
+Function TRTTIObject.SaveRTTIToNameValuePairs: TNameValue;
+Var
+	lCtrl : Integer;
+Begin
+	Result := TNameValue.Create;
+	For lCtrl := 0 To PropertyCount - 1 Do
+		Result.SetValue(GetPropertyName(lCtrl), GetPropertyValueByIndex(lCtrl));
+End;
+
+Function TRTTIObject.FormattedProperties: String;
+Var
+	lCtrl : Integer;
+Begin
+	// Debug  WriteLn('TRTTIObject.FormattedProperties');
+	Result := '';
+	For lCtrl := 0 To PropertyCount - 1 Do
+	Begin
+		If lCtrl > 0 Then
+			Result := Result + ' ';
+		// Debug  WriteLn('Name: ', GetPropertyName(lCtrl));
+		// Debug  WriteLn('Value: ', VarToStr(PropertiesByIndex[lCtrl]));
+		Result := Result + GetPropertyName(lCtrl) + '="' + VarToStr(PropertiesByIndex[lCtrl]) + '"';
+	End;
+	// Debug  WriteLn('TRTTIObject.FormattedProperties Done.');
+End;
+
+Procedure TRTTIObject.DispatchEvent(Const aEventName : String; Const aObject : TObject);
+Var
+	lEvent : TRTTIEvent;
+Begin
+	lEvent.MsgStr := aEventName;
+	lEvent.Data := Pointer(aObject);
+	// Debug  WriteLn('Assigned : ', Assigned(Self));
+	DispatchStr(lEvent);
+End;
+
+Function GetClassFromStream(Const aStream : TStream): String;
+Begin
+	Result := aStream.ReadAnsiString;
+End;
+
+Function GetClassFromString(Const aString : String): String;
+Var
+	lStringStream : TStringStream;
+Begin
+	Try
+		lStringStream := TStringStream.Create(aString);
+		Result := lStringStream.ReadAnsiString;	
 	Finally
 		lStringStream.Free;
 	End;
