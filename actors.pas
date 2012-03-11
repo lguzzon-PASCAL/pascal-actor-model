@@ -101,7 +101,7 @@ Type
 
 	TSwitchBoardActor = Class(TActorThread)
 	Private
-		fClasses : TClassList;
+		fClasses : TFPHashList;
 		fInstances : TFPHashObjectList;
 	Public
 		Constructor Create(Const aName : String = ccDefaultSwitchBoardName; CreateSuspended : Boolean = False; Const StackSize : SizeUInt = DefaultStackSize; Const aTimeout : Integer = ccDefaultTimeout); Override;
@@ -334,7 +334,7 @@ Begin
 	FreeOnTerminate := False;
 	fInstances := TFPHashObjectList.Create;
 	fInstances.OwnsObjects := True;
-	fClasses := TClassList.Create;
+	fClasses := TFPHashList.Create;
 End;
 
 Destructor TSwitchBoardActor.Destroy;
@@ -416,41 +416,34 @@ Var
 	lMessage : TRegisterClassActorMessage;
 Begin
 	lMessage := UnbundleMessage(aMessage) As TRegisterClassActorMessage;
-	fClasses.Add(lMessage.ClassReference);
+	fClasses.Add(lMessage.ClassReference.ClassName, Pointer(lMessage.ClassReference));
 End;
 
 Procedure TSwitchBoardActor.UnregisterClass(Var aMessage);
 Var
 	lMessage : TUnregisterClassActorMessage;
-	lCtrl : Integer;
-	lClass : TActorThreadClass;
+	lIndex : Integer;
 Begin
 	lMessage := UnbundleMessage(aMessage) As TUnregisterClassActorMessage;
-	For lCtrl := 0 To fClasses.Count - 1 Do
-		If LowerCase(fClasses[lCtrl].ClassName) = LowerCase(lMessage.Data) Then
-		Begin
-			lClass := TActorThreadClass(fClasses[lCtrl]);
-			fClasses.Remove(lClass);
-			Exit;
-		End;
+	lIndex := fClasses.FindIndexOf(lMessage.Data);
+	If lIndex >= 0 Then
+		fClasses.Delete(lIndex);
 End;
 
 Procedure TSwitchBoardActor.CreateInstance(Var aMessage);
 Var
-	lCtrl : Integer;
 	lMessage : TCreateInstanceActorMessage;
 	lActor : TActorThread;
+	lIndex : Integer;
 Begin
 	lMessage := UnbundleMessage(aMessage) As TCreateInstanceActorMessage;
-	For lCtrl := 0 To fClasses.Count - 1 Do
-		If LowerCase(fClasses.Items[lCtrl].ClassName) = LowerCase(lMessage.NameOfClass) Then
-		Begin
-			// Debug WriteLn('Creating a instance of ', lMessage.NameOfClass, ' named ', lMessage.NameOfInstance);
-			lActor := TActorThreadClass(fClasses.Items[lCtrl]).Create(lMessage.NameOfInstance, True);
-			lActor.Start;
-			fInstances.Add(lActor.ActorName, lActor);
-			Break;
-		End;
+	lIndex := fClasses.FindIndexOf(lMessage.NameOfClass);
+	If lIndex >= 0 Then
+	Begin
+		lActor := TActorThreadClass(fClasses.Items[lIndex]).Create(lMessage.NameOfInstance, True);
+		lActor.Start;
+		fInstances.Add(lActor.ActorName, lActor);
+	End;
 End;
 
 Procedure TSwitchBoardActor.RemoveInstance(Var aMessage);
