@@ -23,27 +23,8 @@ Uses
 	Actors,
 	ActorMessages,
 	ActorLogger,
-	CustomActors;
-
-Type
-	TScreenMessage = Class(TCustomStringActorMessage);
-
-	TScreenWriterActor = Class(TActorThread)
-	Public
-		Procedure ScreenWrite(Var aMessage); Message 'tscreenmessage';
-	End;
-
-Procedure TScreenWriterActor.ScreenWrite(Var aMessage);
-Var
-	lMessage : TScreenMessage;
-Begin
-	lMessage := Message As TScreenMessage;
-	WriteLn(ActorName, ': ', lMessage.Data);
-End;
-
-Var
-	gBuffer : String;
-	gScreenMessage : TScreenMessage;
+	CustomActors,
+	UDPActors;
 
 Begin
 	// Register messages
@@ -51,36 +32,25 @@ Begin
 	Actors.RegisterMessages;
 	ActorLogger.RegisterMessages;
 	CustomActors.RegisterMesssages;
-	ActorMessageClassFactory.RegisterMessage(TScreenMessage);
+	UDPActors.RegisterMessages;
 	
 	// Initialize systems
 	Actors.Init('localhost', 'switchboard');
 	ActorLogger.Init;
 	CustomActors.Init;
-	
-	// Register aditional actor classes
-	RegisterActorClass(TScreenWriterActor);
+	UDPActors.Init;
 	
 	// Start actors and set config
-	StartActorInstance('TScreenWriterActor', 'screen1');
-	StartActorInstance('TScreenWriterActor', 'screen2');
-	StartActorInstance('TScreenWriterActor', 'screen3');
-	StartActorInstance('TLoadBalancerActor', 'screen');
-	AddTargetToActor('screen', 'screen1');
-	AddTargetToActor('screen', 'screen2');
-	AddTargetToActor('screen', 'screen3');
+	StartActorInstance('TUDPReceiver', 'udpreceive1');
+	StartActorInstance('TUDPSender', 'udpsender1');
+	StartAUDPReceiver('udpreceiver1', 'udpsender1', '127.0.0.1', '4000', 1500);
 	
 	Repeat
 		Write('Input something : '); ReadLn(gBuffer);
-		If gBuffer <> 'quit' Then
-		Begin
-			gScreenMessage := TScreenMessage.Create('localhost', 'screen');
-			gScreenMessage.Data := gBuffer;
-			Switchboard.Mailbox.Push(gScreenMessage);
-		End;
 	Until gBuffer = 'quit';
 	
 	// Finish actors
+	UDPActors.Fini;
 	CustomActors.Fini;
 	ActorLogger.Fini;
 	Actors.Fini;

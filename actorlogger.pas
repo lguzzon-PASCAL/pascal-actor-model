@@ -46,6 +46,13 @@ Type
 
 Procedure Init;
 Procedure Fini;
+Procedure RegisterMessages;
+
+Procedure ThrowLog(Const aMessage : String);
+Procedure ThrowWarning(Const aMessage : String);
+Procedure ThrowError(Const aMessage : String);
+Procedure ThrowDebug(Const aMessage : String);
+Procedure ThrowInfo(Const aMessage : String);
 
 Implementation
 
@@ -111,6 +118,55 @@ End;
 
 Procedure Fini;
 Begin
+End;
+
+Procedure RegisterMessages;
+Begin
+End;
+
+Procedure ThrowLog(Const aMessage : String);
+Var
+	lLog : TLogActorMessage;
+Begin
+	lLog := TLogActorMessage.Create(MainThreadName, ccDefaultLogger);
+	lLog.Data := aMessage;
+	Send(lLog);
+End;
+
+Procedure ThrowWarning(Const aMessage : String);
+Var
+	lWarning : TWarningActorMessage;
+Begin
+	lWarning := TWarningActorMessage.Create(MainThreadName, ccDefaultLogger);
+	lWarning.Data := aMessage;
+	Send(lWarning);
+End;
+
+Procedure ThrowError(Const aMessage : String);
+Var
+	lError : TErrorActorMessage;
+Begin
+	lError := TErrorActorMessage.Create(MainThreadName, ccDefaultLogger);
+	lError.Data := aMessage;
+	Send(lError);
+End;
+
+Procedure ThrowDebug(Const aMessage : String);
+Var
+	lDebug : TDebugActorMessage;
+Begin
+	lDebug := TDebugActorMessage.Create(MainThreadName, ccDefaultLogger);
+	lDebug.Data := aMessage;
+	Send(lError);
+End;
+
+Procedure ThrowInfo(Const aMessage : String);
+Var
+	lInfo : TInfoActorMessage;
+Begin
+	lInfo := TInfoActorMessage.Create(MainThreadName, ccDefaultLogger);
+	lInfo.Data := aMessage;
+	Send(lInfo);
 End;
 
 End.

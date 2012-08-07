@@ -190,6 +190,10 @@ Type
 		Function Build(Const aClassName : String): TCustomActorMessage;
 	End;
 
+Procedure Init;
+Procedure Fini;
+Procedure RegisterMessages;
+	
 Var
 	ActorMessageClassFactory : TActorMessageClassFactory;
 	MessageCount : Int64;
@@ -197,18 +201,7 @@ Var
 ThreadVar
 	LastRequestID : Int64;
 
-Procedure GlobalIncrementMessageCount;
-Procedure GlobalDecrementMessageCount;
-	
 Implementation
-
-Procedure GlobalIncrementMessageCount;
-Begin
-End;
-
-Procedure GlobalDecrementMessageCount;
-Begin
-End;
 
 // TCustomActorMessage
 
@@ -378,8 +371,17 @@ Begin
 		Result := TCustomActorMessageClass(fClasses.Items[lIndex]).Create('', '');
 End;
 
-Initialization
+Procedure Init;
+Begin
+End;
 
+Procedure Fini;
+Begin
+	ActorMessageClassFactory.Free;
+End;
+
+Procedure RegisterMessages;
+Begin
 	ActorMessageClassFactory := TActorMessageClassFactory.Create;
 	ActorMessageClassFactory.RegisterMessage(TCustomActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TCustomEncapsulatedActorMessage);
@@ -408,9 +410,7 @@ Initialization
 	ActorMessageClassFactory.RegisterMessage(TDebugActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TInfoActorMessage);
 	LastRequestID := -1;
+End;
 
-Finalization
-
-	ActorMessageClassFactory.Free;
 
 End.

@@ -77,6 +77,13 @@ Type
 	Public
 		Procedure SendString(Var aMessage); Message 'tudpmessage';
 	End;
+	
+Procedure Init;
+Procedure Fini;
+Procedure RegisterMessages;
+
+Procedure SetUDPToListen(Const aInstanceName : String);
+Procedure StartAUDPReceiver(Const aInstanceName, aTarget, aIP, aPort : String; Const aMaxPacketSize : Integer);
 
 Implementation
 
@@ -198,6 +205,40 @@ Begin
 	Finally
 		FreeAndNil(lSocket);
 	End;
+End;
+
+Procedure Init;
+Begin
+	RegisterActorClass(TUDPReceiver);
+	RegisterActorClass(TUDPSender);
+End;
+
+Procedure Fini;
+Begin
+End;
+
+Procedure RegisterMessages;
+Begin
+	ActorMessageClassFactory.RegisterMessage(TUDPMessage);
+	ActorMessageClassFactory.RegisterMessage(TStartUDPListenerMessage);
+End;
+
+Procedure SetUDPToListen(Const aInstanceName : String);
+Var
+	lMessage : TStartUDPListenerMessage;
+Begin
+	lMessage := TStartUDPListenerMessage.Create(MainThreadName, aInstanceName);
+	Switchboard.Mailbox.Push(lMessage);
+End;
+
+Procedure StartAUDPReceiver(Const aInstanceName, aTarget, aIP, aPort : String; Const aMaxPacketSize : Integer);
+Begin
+	StartActorInstance('TUDPReceiver', aInstanceName);
+	SetTargetOfActor(aInstanceName, aTarget);
+	ConfigActor(aInstanceName, 'ip', aIP);
+	ConfigActor(aInstanceName, 'port', aPort);
+	ConfigActor(aInstanceName, 'packetmaxsize', aMaxPacketSize);
+	SetUDPToListen(aInstanceName);
 End;
 
 End.
