@@ -126,7 +126,7 @@ Var
 Begin
 	If fTargets.Count > 0 Then
 		For lCtrl := 0 To fTargets.Count - 1 Do
-			ForwardTo(fTargets[lCtrl], Message.Clone);
+			SendTo(fTargets[lCtrl], Message.Clone);
 End;
 
 // TLoadBalancerActor 
@@ -139,7 +139,7 @@ Begin
 			fCurrent := 0;
 		If fCurrent < 0 Then
 			fCurrent := 0;
-		ForwardTo(fTargets[fCurrent]);
+		SendTo(fTargets[fCurrent], SaveMessage);
 		Inc(fCurrent);
 	End;
 End;

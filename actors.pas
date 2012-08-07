@@ -75,12 +75,12 @@ Type
 		Procedure Idle; Virtual;
 		Procedure InitMessage; Virtual;
 		Procedure DoneMessage; Virtual;
+		Function SaveMessage: TCustomActorMessage;
 		Procedure Send(Const aMessage : TCustomActorMessage); Virtual;
 		Procedure SendTo(Const aAddress : String; aMessage : TCustomActorMessage);
-		Procedure ForwardTo(Const aAddress : String; Const aMessage : TCustomActorMessage); Overload;
-		Procedure ForwardTo(Const aAddress : String); Overload;
 		Procedure Reply(aMessage : TCustomActorMessage);
 		Procedure DispatchMessage;
+		Procedure Request(Var aMessage : TCustomActorMessage; Const aTimeout : Integer);
 		// RTTI Handling for config
 		Function GetPropertyIndex(Const aName : String) : Integer;
 		Function GetPropertyType(Const aIndex : Integer) : TTypeKind;
@@ -200,6 +200,12 @@ Begin
 		FreeAndNil(fMessage);
 End;
 
+Function TActorThread.SaveMessage: TCustomActorMessage;
+Begin
+	Result := fMessage;
+	fMessage := Nil;
+End;
+
 Procedure TActorThread.Send(Const aMessage : TCustomActorMessage);
 Begin
 	SwitchBoard.Mailbox.Push(aMessage);
@@ -212,23 +218,11 @@ Begin
 	Send(aMessage);
 End;
 
-Procedure TActorThread.ForwardTo(Const aAddress : String; Const aMessage : TCustomActorMessage);
-Begin
-	aMessage.Destination := aAddress;
-	Send(aMessage);
-End;
-
-Procedure TActorThread.ForwardTo(Const aAddress : String);
-Begin
-	fMessage.Destination := aAddress;
-	Send(fMessage);
-	fMessage := Nil;
-End;
-
 Procedure TActorThread.Reply(aMessage : TCustomActorMessage);
 Begin
 	aMessage.Source := fActorName;
 	aMessage.Destination := fMessage.Source;
+	aMessage.TransactionID := fMessage.TransactionID;
 	Send(aMessage);
 End;
 
@@ -240,6 +234,46 @@ Begin
 	lMsg.Data := Nil;
 	DispatchStr(lMsg);
 	DoneMessage;
+End;
+
+Procedure TActorThread.Request(Var aMessage : TCustomActorMessage; Const aTimeout : Integer);
+Var
+	lRequestID : Int64;
+	lFound : Boolean;
+	lStart : TDateTime;
+	lTimeout : Integer;
+Begin
+	DoneMessage;
+	lFound := False;
+	lRequestID := LastRequestID;
+	Inc(LastRequestID);
+	aMessage.TransactionID := lRequestID;
+	Send(aMessage);
+	lStart := Now;
+	lTimeout := 0;
+	While Not lFound And (lTimeout <= ccDefaultTimeout * 10) Do
+	Begin
+		Idle;
+		lTimeout := MilliSecondsBetween(Now, lStart);
+		If fMailbox.AtLeast(1) Then
+			fMessage := fMailbox.Pop
+		Else
+			If fTimeout > 0 Then
+				If fMailbox.WaitFor(fTimeout) = wrSignaled Then
+					fMessage := fMailbox.Pop
+				Else
+					fMessage := Nil
+			Else
+				fMessage := Nil;
+		If Assigned(fMessage) Then
+			If fMessage.TransactionID = lRequestID Then
+				lFound := True
+			Else
+			Begin
+				fMailbox.Push(fMessage);
+				fMessage := Nil;
+			End;
+	End;
 End;
 
 Procedure TActorThread.SetPropertyValueByName(Const aName : String; Const aValue : Variant);

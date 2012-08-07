@@ -41,6 +41,7 @@ Type
 	Private
 		fSource,
 		fDestination : String;
+		fTransactionID : Int64;
 	Public
 		Constructor Create(Const aSource, aDestination : String); Virtual;
 		Destructor Destroy; Override;
@@ -48,6 +49,7 @@ Type
 	Published
 		Property Source : String Read fSource Write fSource;
 		Property Destination : String Read fDestination Write fDestination;
+		Property TransactionID : Int64 Read fTransactionID Write fTransactionID;
 	End;
 
 	TCustomActorMessageClass = Class Of TCustomActorMessage;
@@ -190,7 +192,9 @@ Type
 
 Var
 	ActorMessageClassFactory : TActorMessageClassFactory;
-
+ThreadVar
+	LastRequestID : Int64;
+	
 Implementation
 
 // TCustomActorMessage
@@ -214,6 +218,7 @@ Begin
 	Result := ActorMessageClassFactory.Build(Self.ClassName);
 	Result.Source := Source;
 	Result.Destination := Destination;
+	Result.TransactionID := TransactionID;
 End;
 
 // TCustomEncapsulatedActorMessage
@@ -389,6 +394,7 @@ Initialization
 	ActorMessageClassFactory.RegisterMessage(TErrorActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TDebugActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TInfoActorMessage);
+	LastRequestID := -1;
 
 Finalization
 
