@@ -92,6 +92,7 @@ Type
 		// Properties
 		Property ActorName : String Read fActorName;
 		Property Running : Boolean Read fRunning Write fRunning;
+		Property Timeout : Integer Read fTimeout Write fTimeout;
 		Property Mailbox : TCustomSynchronizedQueue Read fMailbox;
 		Property Message : TCustomActorMessage Read fMessage Write fMessage;
 	End;
