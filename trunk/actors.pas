@@ -55,14 +55,14 @@ Type
 
 	TActorThread = Class(TThread)
 	Private
-		fTypeData  : PTypeData;
-		fPropList  : PPropList;
+		fTypeData : PTypeData;
+		fPropList : PPropList;
 		fPropCount : Integer;
 		fActorName : String;
-		fMailbox   : TCustomSynchronizedQueue;
-		fMessage   : TCustomActorMessage;
-		fRunning   : Boolean;
-		fTimeout   : Integer;
+		fMailbox : TCustomSynchronizedQueue;
+		fMessage : TCustomActorMessage;
+		fRunning : Boolean;
+		fTimeout : Integer;
 	Public
 		Constructor Create(
 			Const aName : String = '';
