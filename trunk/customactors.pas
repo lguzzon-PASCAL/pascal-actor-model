@@ -67,6 +67,7 @@ Type
 
 Procedure Init;
 Procedure Fini;
+Procedure RegisterMessages;
 
 Procedure SetTargetOfActor(Const aName, aTarget : String);
 Procedure AddTargetToActor(Const aName, aTarget : String);
@@ -161,6 +162,10 @@ Begin
 End;
 
 Procedure Fini;
+Begin
+End;
+
+Procedure RegisterMessages;
 Begin
 End;
 

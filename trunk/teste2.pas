@@ -112,19 +112,33 @@ Var
 	gBuffer : String;
 
 Begin
+	// Register messages
+	ActorMessages.RegisterMessages;
+	Actors.RegisterMessages;
+	ActorLogger.RegisterMessages;
+	CustomActors.RegisterMesssages;
 	ActorMessageClassFactory.RegisterMessage(TPingMessage);
 	ActorMessageClassFactory.RegisterMessage(TPongMessage);
+
+	// Initialize systems
 	Actors.Init('localhost', 'switchboard');
 	ActorLogger.Init;
 	CustomActors.Init;
+
+	// Register aditional actor classes
 	RegisterActorClass(TPingActor);
 	RegisterActorClass(TPongActor);
+	
+	// Start actors and set config
 	StartActorInstance('TPingActor', 'ping1');
 	StartActorInstance('TPongActor', 'pong1');
 	SetTargetOfActor('ping1', 'pong1');
+
 	Repeat
 		Write('Input something : '); ReadLn(gBuffer);
 	Until gBuffer = 'quit';
+
+	// Finish actors
 	CustomActors.Fini;
 	ActorLogger.Fini;
 	Actors.Fini;

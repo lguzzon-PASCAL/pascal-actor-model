@@ -123,6 +123,7 @@ Var
 
 Procedure Init(Const aLocalName : String = ccDefaultMainThreadName; Const aLocalSwitchboardName : String = ccDefaultSwitchBoardName);
 Procedure Fini;
+Procedure RegisterMessages;
 
 Procedure RegisterActorClass(Const aClass : TClass);
 Procedure StartActorInstance(Const aClassName, aInstanceName : String);
@@ -495,6 +496,10 @@ Begin
 	SwitchBoard.WaitFor;
 	// Debug WriteLn('Freeing main queue.');
 	MainThreadQueue.Free;
+End;
+
+Procedure RegisterMessages;
+Begin
 End;
 
 Procedure RegisterActorClass(Const aClass : TClass);
