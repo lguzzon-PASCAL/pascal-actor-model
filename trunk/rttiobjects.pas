@@ -25,7 +25,7 @@ Uses
 	StrUtils,
 	SysUtils,
 	TypInfo,
-	NameValue,
+	// NameValue,
 	Variants;
 
 Const
@@ -73,15 +73,12 @@ Type
 		Function IsObjectProperty(Const aIndex : Integer) : Boolean;
 		Function GetEnumPropertyPossibleValues(Const aName : String): TArrayOfString;
 		Function HasProperty(Const aName : String): Boolean;
-		Function Match(Const aNameValue : TNameValue): Boolean;
 		Procedure InitRTTI;
 		Procedure DoneRTTI;
 		Procedure InitRTTIFromStream(Const aStream : TStream); Virtual;
 		Procedure SaveRTTIToStream(Const aStream : TStream); Virtual;
 		Procedure InitRTTIFromString(Const aString : String); Virtual;
 		Function SaveRTTIToString: String; Virtual;
-		Procedure InitRTTIFromNameValuePairs(Const aNameValue : TNameValue);
-		Function SaveRTTIToNameValuePairs: TNameValue;
 		Function FormattedProperties: String;
 		Procedure DispatchEvent(Const aEventName : String; Const aObject : TObject);
 		// Properties
@@ -226,26 +223,6 @@ End;
 Function TRTTIObject.HasProperty(Const aName : String): Boolean;
 Begin
 	Result := GetPropertyIndex(aName) >= 0;
-End;
-
-Function TRTTIObject.Match(Const aNameValue : TNameValue): Boolean;
-Var
-	lCtrl : Integer;
-Begin
-	For lCtrl := Low(aNameValue.Pairs) To High(aNameValue.Pairs) Do
-		If HasProperty(aNameValue.Pairs[lCtrl].Name) Then
-			If GetPropertyValueByName(aNameValue.Pairs[lCtrl].Name) = aNameValue.Pairs[lCtrl].Value Then
-				Result := True
-			Else
-			Begin
-				Result := False;
-				Break;
-			End
-		Else
-		Begin
-			Result := False;
-			Break;
-		End;
 End;
 
 Procedure TRTTIObject.InitRTTI;
@@ -403,23 +380,6 @@ Begin
 	Finally
 		lStringStream.Free;
 	End;
-End;
-
-Procedure TRTTIObject.InitRTTIFromNameValuePairs(Const aNameValue : TNameValue);
-Var
-	lCtrl : Integer;
-Begin
-	For lCtrl := Low(aNameValue.Pairs) To High(aNameValue.Pairs) Do
-		Properties[aNameValue.Pairs[lCtrl].Name] := aNameValue.Pairs[lCtrl].Value;
-End;
-
-Function TRTTIObject.SaveRTTIToNameValuePairs: TNameValue;
-Var
-	lCtrl : Integer;
-Begin
-	Result := TNameValue.Create;
-	For lCtrl := 0 To PropertyCount - 1 Do
-		Result.SetValue(GetPropertyName(lCtrl), GetPropertyValueByIndex(lCtrl));
 End;
 
 Function TRTTIObject.FormattedProperties: String;

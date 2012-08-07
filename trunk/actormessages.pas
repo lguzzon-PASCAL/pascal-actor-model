@@ -154,6 +154,18 @@ Type
 
 	TConfigInstanceActorMessage = Class(TCustomNameValueActorMessage);
 
+	TCreateInstanceAndConfigActorMessage = Class(TCreateInstanceActorMessage)
+	Private
+		fMessages : Array Of TCustomActorMessage;
+		Function GetMessage(Const aIndex : Integer): TCustomActorMessage;
+		Function GetCount: Integer;
+	Public
+		Function Clone : TCustomActorMessage; Override;
+		Function AddMessage(Const aMessage : TCustomActorMessage): TCreateInstanceAndConfigActorMessage;
+		Property Messages[aIndex : Integer]: TCustomActorMessage Read GetMessage;
+		Property MessageCount: Integer Read GetCount;
+	End;
+	
 	// Actor class registration/unregistration related messages
 	TRegisterClassActorMessage = Class(TCustomClassReferenceActorMessage);
 	TUnregisterClassActorMessage = Class(TCustomStringActorMessage);
@@ -291,6 +303,34 @@ Begin
 	(Result As TCreateInstanceActorMessage).NameOfClass := NameOfClass;
 End;
 
+// TCreateInstanceAndConfigActorMessage
+
+Function TCreateInstanceAndConfigActorMessage.GetMessage(Const aIndex : Integer): TCustomActorMessage;
+Begin
+	Result := fMessages[aIndex + 1];
+End;
+
+Function TCreateInstanceAndConfigActorMessage.GetCount: Integer;
+Begin
+	Result := Length(fMessages);
+End;
+
+Function TCreateInstanceAndConfigActorMessage.Clone : TCustomActorMessage;
+Var
+	lCtrl : Integer;
+Begin
+	Result := Inherited Clone;
+	For lCtrl := 0 To (Result As TCreateInstanceAndConfigActorMessage).GetCount - 1 Do
+		(Result As TCreateInstanceAndConfigActorMessage).AddMessage(GetMessage(lCtrl).Clone);
+End;
+
+Function TCreateInstanceAndConfigActorMessage.AddMessage(Const aMessage : TCustomActorMessage): TCreateInstanceAndConfigActorMessage;
+Begin
+	SetLength(fMessages, Length(fMessages) + 1);
+	fMessages[High(fMessages)] := aMessage;
+	Result := Self;
+End;
+
 // TActorMessageClassFactory
 
 Constructor TActorMessageClassFactory.Create;
@@ -339,6 +379,7 @@ Initialization
 	ActorMessageClassFactory.RegisterMessage(TTerminateActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TRemoveActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TCreateInstanceActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TCreateInstanceAndConfigActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TConfigInstanceActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TRegisterClassActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TUnregisterClassActorMessage);

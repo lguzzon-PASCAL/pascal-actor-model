@@ -106,11 +106,14 @@ End;
 
 Destructor TCustomSynchronizedQueue.Destroy;
 Begin
-	While fQueue.AtLeast(1) Do
-		fQueue.Pop.Free;
-	FreeAndNil(fQueue);
-	FreeAndNil(fSynchronizer);
-	FreeAndNil(fSignal);
+	Try
+		While fQueue.AtLeast(1) Do
+			fQueue.Pop.Free;
+	Finally
+		FreeAndNil(fQueue);
+		FreeAndNil(fSynchronizer);
+		FreeAndNil(fSignal);
+	End;
 	Inherited Destroy;
 End;
 
