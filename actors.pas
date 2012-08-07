@@ -38,7 +38,7 @@ Const
 	ccDefaultMainThreadName = 'main';
 	ccDefaultSwitchBoardName = 'switchboard';
 	ccDefaultLogger = 'logger';
-	ccDefaultTimeout = 100;
+	ccDefaultTimeout = 10;
 
 Type
 	TActorThread = Class;
@@ -77,10 +77,9 @@ Type
 		Procedure DoneMessage; Virtual;
 		Function SaveMessage: TCustomActorMessage;
 		Procedure Send(Const aMessage : TCustomActorMessage); Virtual;
-		Procedure SendTo(Const aAddress : String; aMessage : TCustomActorMessage);
 		Procedure Reply(aMessage : TCustomActorMessage);
-		Procedure DispatchMessage;
 		Procedure Request(Var aMessage : TCustomActorMessage; Const aTimeout : Integer);
+		Procedure DispatchMessage;
 		// RTTI Handling for config
 		Function GetPropertyIndex(Const aName : String) : Integer;
 		Function GetPropertyType(Const aIndex : Integer) : TTypeKind;
@@ -107,8 +106,7 @@ Type
 		Constructor Create(Const aName : String = ccDefaultSwitchBoardName; CreateSuspended : Boolean = False; Const StackSize : SizeUInt = DefaultStackSize; Const aTimeout : Integer = ccDefaultTimeout); Override;
 		Destructor Destroy; Override;
 		Procedure Execute; Override;
-		Procedure Route(Const aMessage : TCustomActorMessage); Virtual;
-		Procedure RouteTo(Const aAddress : String; Const aMessage : TCustomActorMessage); Virtual;
+		Procedure Route; Virtual;
 		// Message handlers
 		Procedure RegisterClass(Var aMessage); Message 'tregisterclassactormessage';
 		Procedure UnregisterClass(Var aMessage); Message 'tunregisterclassactormessage';
@@ -158,7 +156,7 @@ End;
 
 Destructor TActorThread.Destroy;
 Begin
-	fMailbox.Free;
+	FreeAndNil(fMailbox);
 	DoneRTTI;
 	Inherited Destroy;
 End;
@@ -170,7 +168,6 @@ Begin
 		If Assigned(fMessage) Then
 			DispatchMessage;
 	Until fRunning = False;
-	SendTo(Switchboard.ActorName, TRemoveActorMessage.Create(ActorName, Switchboard.ActorName));
 End;
 
 Procedure TActorThread.Idle;
@@ -211,29 +208,12 @@ Begin
 	SwitchBoard.Mailbox.Push(aMessage);
 End;
 
-Procedure TActorThread.SendTo(Const aAddress : String; aMessage : TCustomActorMessage);
-Begin
-	aMessage.Source := fActorName;
-	aMessage.Destination := aAddress;
-	Send(aMessage);
-End;
-
 Procedure TActorThread.Reply(aMessage : TCustomActorMessage);
 Begin
 	aMessage.Source := fActorName;
 	aMessage.Destination := fMessage.Source;
 	aMessage.TransactionID := fMessage.TransactionID;
 	Send(aMessage);
-End;
-
-Procedure TActorThread.DispatchMessage;
-Var
-	lMsg : TInternalMessage;
-Begin
-	lMsg.MsgStr := LowerCase(Message.ClassName);
-	lMsg.Data := Nil;
-	DispatchStr(lMsg);
-	DoneMessage;
 End;
 
 Procedure TActorThread.Request(Var aMessage : TCustomActorMessage; Const aTimeout : Integer);
@@ -243,17 +223,16 @@ Var
 	lStart : TDateTime;
 	lTimeout : Integer;
 Begin
-	DoneMessage;
-	lFound := False;
+	fMailbox.Push(SaveMessage);
 	lRequestID := LastRequestID;
 	Inc(LastRequestID);
 	aMessage.TransactionID := lRequestID;
 	Send(aMessage);
+	lFound := False;
 	lStart := Now;
 	lTimeout := 0;
 	While Not lFound And (lTimeout <= ccDefaultTimeout * 10) Do
 	Begin
-		Idle;
 		lTimeout := MilliSecondsBetween(Now, lStart);
 		If fMailbox.AtLeast(1) Then
 			fMessage := fMailbox.Pop
@@ -269,11 +248,21 @@ Begin
 			If fMessage.TransactionID = lRequestID Then
 				lFound := True
 			Else
-			Begin
-				fMailbox.Push(fMessage);
-				fMessage := Nil;
-			End;
+				fMailbox.Push(SaveMessage);
 	End;
+	If Not lFound Then
+		fMailbox.Push(SaveMessage);
+End;
+
+Procedure TActorThread.DispatchMessage;
+Var
+	lMsg : TInternalMessage;
+Begin
+	// Debug WriteLn('Dispatching message ', Message.ClassName);
+	lMsg.MsgStr := LowerCase(Message.ClassName);
+	lMsg.Data := Nil;
+	DispatchStr(lMsg);
+	DoneMessage;
 End;
 
 Procedure TActorThread.SetPropertyValueByName(Const aName : String; Const aValue : Variant);
@@ -360,9 +349,9 @@ Constructor TSwitchBoardActor.Create(
 	);
 Begin
 	Inherited Create(aName, CreateSuspended, StackSize, aTimeout);
-	FreeOnTerminate := False;
+	FreeOnTerminate := True;
 	fInstances := TFPHashObjectList.Create;
-	fInstances.OwnsObjects := False;
+	fInstances.OwnsObjects := True;
 	fClasses := TFPHashList.Create;
 End;
 
@@ -376,24 +365,18 @@ End;
 Procedure TSwitchBoardActor.Execute;
 Var
 	lCtrl : Integer;
-	lStart : TDateTime;
-	lTimeout : Integer;
 Begin
 	While Running Do
 	Begin
 		InitMessage;
 		If Assigned(Message) Then
-		Begin
 			If Message.Destination = ActorName Then
 				DispatchMessage
-			Else If Message.Destination = MainThreadName Then
-			Begin
-				MainThreadQueue.Push(Message);
-				Message := Nil;
-			End
 			Else
-				Route(Message);
-		End;
+				If Message.Destination = MainThreadName Then
+					MainThreadQueue.Push(SaveMessage)
+				Else
+					Route;
 		DoneMessage;
 	End;
 	// Debug WriteLn('Quitting.');
@@ -402,43 +385,27 @@ Begin
 		// Debug WriteLn('Asking ', (fInstances.Items[lCtrl] As TActorThread).ActorName, ' to quit.');
 		(fInstances.Items[lCtrl] As TActorThread).Mailbox.Push(TTerminateActorMessage.Create(ActorName, (fInstances.Items[lCtrl] As TActorThread).ActorName));
 	End;
-	lStart := Now;
-	lTimeout := 0;
-	While (fInstances.Count > 0) And (lTimeout <= ccDefaultTimeout * 10) Do
-	Begin
-		InitMessage;
-		lTimeout := MilliSecondsBetween(Now, lStart);
-		// Debug  WriteLn(Message.Source, ':', Message.Destination, ' -> ', Message.ClassName, ' at ', lTimeout);
-		If Message Is TRemoveActorMessage Then
-			DispatchMessage;
-		DoneMessage;
-	End;
+	Sleep(ccDefaultTimeout * 10);
 	For lCtrl := 0 To fInstances.Count - 1 Do
 	Begin
 		// Debug WriteLn('Forcefully making ', (fInstances.Items[lCtrl] As TActorThread).ActorName, ' quit.');
 		(fInstances.Items[lCtrl] As TActorThread).Terminate;
-		If Assigned(fInstances.Items[lCtrl]) Then
-			(fInstances.Items[lCtrl] As TActorThread).Free;
+		fInstances.Delete(lCtrl);
 	End;
+	// Debug WriteLn(fInstances.Count);
 End;
 
-Procedure TSwitchBoardActor.Route(Const aMessage : TCustomActorMessage);
-Begin
-	RouteTo((aMessage As TCustomActorMessage).Destination, aMessage);
-End;
-
-Procedure TSwitchBoardActor.RouteTo(Const aAddress : String; Const aMessage : TCustomActorMessage);
+Procedure TSwitchBoardActor.Route;
 Var
 	lTarget : TObject;
 Begin
-	If Assigned(aMessage) Then
+	If Assigned(Message) Then
 	Begin
-		lTarget := fInstances.Find(aAddress);
+		lTarget := fInstances.Find(Message.Destination);
 		If Assigned(lTarget) Then 
-		Begin
-			(lTarget As TActorThread).MailBox.Push(aMessage);
-			fMessage := Nil;
-		End;
+			(lTarget As TActorThread).MailBox.Push(SaveMessage)
+		Else
+			DoneMessage;
 	End;
 End;
 
@@ -505,8 +472,8 @@ Begin
 	lIndex := fInstances.FindIndexOf(lMessage.Source);
 	If lIndex >= 0 Then
 	Begin
+		// Debug WriteLn((fInstances.Items[lIndex] As TActorThread).ActorName, ' is quitting.');
 		(fInstances.Items[lIndex] As TActorThread).Terminate;
-		(fInstances.Items[lIndex] As TActorThread).Free;
 		fInstances.Delete(lIndex);
 	End;
 End;
@@ -525,8 +492,6 @@ Begin
 	SwitchBoard.MailBox.Push(TTerminateActorMessage.Create(MainThreadName, SwitchBoard.ActorName));
 	// Debug WriteLn('Waiting for switchboard to finish.');
 	SwitchBoard.WaitFor;
-	// Debug WriteLn('Freeing switchboard.');
-	SwitchBoard.Free;
 	// Debug WriteLn('Freeing main queue.');
 	MainThreadQueue.Free;
 End;
