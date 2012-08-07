@@ -113,6 +113,7 @@ Type
 		Procedure RegisterClass(Var aMessage); Message 'tregisterclassactormessage';
 		Procedure UnregisterClass(Var aMessage); Message 'tunregisterclassactormessage';
 		Procedure CreateInstance(Var aMessage); Message 'tcreateinstanceactormessage';
+		Procedure CreateInstanceAndConfig(Var aMessage); Message 'tcreateinstanceandconfigactormessage';
 		Procedure RemoveInstance(Var aMessage); Message 'tremoveactormessage';
 	End;
 
@@ -121,7 +122,6 @@ Var
 	MainThreadQueue : TCustomSynchronizedQueue;
 	SwitchBoard : TSwitchBoardActor;
 
-Function UnbundleMessage(Const aMessage): TCustomActorMessage;
 Procedure Init(Const aLocalName : String = ccDefaultMainThreadName; Const aLocalSwitchboardName : String = ccDefaultSwitchBoardName);
 Procedure Fini;
 
@@ -151,14 +151,14 @@ Begin
 	fTimeout := aTimeout;
 	fMailbox := TCustomSynchronizedQueue.Create;
 	fMessage := Nil;
-	FreeOnTerminate := True;
+	FreeOnTerminate := False;
 	fRunning := True;
 	InitRTTI;
 End;
 
 Destructor TActorThread.Destroy;
 Begin
-	FreeAndNil(fMailbox);
+	fMailbox.Free;
 	DoneRTTI;
 	Inherited Destroy;
 End;
@@ -191,7 +191,7 @@ Begin
 				fMessage := Nil
 		Else
 			fMessage := Nil;
-	// Debug If Assigned(Message) Then WriteLn(Message.ClassName, ' Time to live ', Message.TTL, ' From ', Message.Source, ' To ', Message.Destination, ' my name is ', ActorName);
+	// Debug If Assigned(Message) Then WriteLn(Message.ClassName, ' From ', Message.Source, ' To ', Message.Destination, ' my name is ', ActorName);
 End;
 
 Procedure TActorThread.DoneMessage;
@@ -237,7 +237,7 @@ Var
 	lMsg : TInternalMessage;
 Begin
 	lMsg.MsgStr := LowerCase(Message.ClassName);
-	lMsg.Data := Pointer(Message);
+	lMsg.Data := Nil;
 	DispatchStr(lMsg);
 	DoneMessage;
 End;
@@ -245,20 +245,20 @@ End;
 Procedure TActorThread.SetPropertyValueByName(Const aName : String; Const aValue : Variant);
 Begin
 	Case GetPropertyType(GetPropertyIndex(aName)) Of
-		tkInteger	 : SetOrdProp(Self, aName, aValue);
-		tkChar		: SetStrProp(Self, aName, aValue);
+		tkInteger	  : SetOrdProp(Self, aName, aValue);
+		tkChar		  : SetStrProp(Self, aName, aValue);
 		tkEnumeration : SetEnumProp(Self, aName, aValue);
-		tkFloat	   : SetFloatProp(Self, aName, aValue);
-		tkSet		 : SetSetProp(Self, aName, aValue);
-		tkSString	 : SetStrProp(Self, aName, aValue);
-		tkLString	 : SetStrProp(Self, aName, aValue);
-		tkAString	 : SetStrProp(Self, aName, aValue);
-		tkWString	 : SetStrProp(Self, aName, aValue);
-		tkVariant	 : SetVariantProp(Self, aName, aValue);
-		tkWChar	   : SetWideStrProp(Self, aName, aValue);
-		tkBool		: SetEnumProp(Self, aName, aValue);
-		tkInt64	   : SetInt64Prop(Self, aName, aValue);
-		tkQWord	   : SetInt64Prop(Self, aName, aValue);
+		tkFloat	      : SetFloatProp(Self, aName, aValue);
+		tkSet		  : SetSetProp(Self, aName, aValue);
+		tkSString	  : SetStrProp(Self, aName, aValue);
+		tkLString	  : SetStrProp(Self, aName, aValue);
+		tkAString	  : SetStrProp(Self, aName, aValue);
+		tkWString	  : SetStrProp(Self, aName, aValue);
+		tkVariant	  : SetVariantProp(Self, aName, aValue);
+		tkWChar	      : SetWideStrProp(Self, aName, aValue);
+		tkBool		  : SetEnumProp(Self, aName, aValue);
+		tkInt64	      : SetInt64Prop(Self, aName, aValue);
+		tkQWord	      : SetInt64Prop(Self, aName, aValue);
 	End;
 End;
 
@@ -304,7 +304,7 @@ Var
 	lError : TErrorActorMessage;
 Begin
 	Try
-		lMessage := UnbundleMessage(aMessage) As TConfigInstanceActorMessage;
+		lMessage := fMessage As TConfigInstanceActorMessage;
 		SetPropertyValueByName(lMessage.Name, lMessage.Value);
 	Except
 		On E: Exception Do 
@@ -326,7 +326,7 @@ Constructor TSwitchBoardActor.Create(
 	);
 Begin
 	Inherited Create(aName, CreateSuspended, StackSize, aTimeout);
-	FreeOnTerminate := True;
+	FreeOnTerminate := False;
 	fInstances := TFPHashObjectList.Create;
 	fInstances.OwnsObjects := False;
 	fClasses := TFPHashList.Create;
@@ -383,6 +383,8 @@ Begin
 	Begin
 		// Debug WriteLn('Forcefully making ', (fInstances.Items[lCtrl] As TActorThread).ActorName, ' quit.');
 		(fInstances.Items[lCtrl] As TActorThread).Terminate;
+		If Assigned(fInstances.Items[lCtrl]) Then
+			(fInstances.Items[lCtrl] As TActorThread).Free;
 	End;
 End;
 
@@ -410,7 +412,7 @@ Procedure TSwitchBoardActor.RegisterClass(Var aMessage);
 Var
 	lMessage : TRegisterClassActorMessage;
 Begin
-	lMessage := UnbundleMessage(aMessage) As TRegisterClassActorMessage;
+	lMessage := Message As TRegisterClassActorMessage;
 	fClasses.Add(lMessage.ClassReference.ClassName, Pointer(lMessage.ClassReference));
 End;
 
@@ -419,7 +421,7 @@ Var
 	lMessage : TUnregisterClassActorMessage;
 	lIndex : Integer;
 Begin
-	lMessage := UnbundleMessage(aMessage) As TUnregisterClassActorMessage;
+	lMessage := Message As TUnregisterClassActorMessage;
 	lIndex := fClasses.FindIndexOf(lMessage.Data);
 	If lIndex >= 0 Then
 		fClasses.Delete(lIndex);
@@ -431,7 +433,7 @@ Var
 	lActor : TActorThread;
 	lIndex : Integer;
 Begin
-	lMessage := UnbundleMessage(aMessage) As TCreateInstanceActorMessage;
+	lMessage := Message As TCreateInstanceActorMessage;
 	lIndex := fClasses.FindIndexOf(lMessage.NameOfClass);
 	If lIndex >= 0 Then
 	Begin
@@ -441,23 +443,38 @@ Begin
 	End;
 End;
 
+Procedure TSwitchBoardActor.CreateInstanceAndConfig(Var aMessage);
+Var
+	lMessage : TCreateInstanceAndConfigActorMessage;
+	lActor : TActorThread;
+	lIndex : Integer;
+	lCtrl : Integer;
+Begin
+	lMessage := Message As TCreateInstanceAndConfigActorMessage;
+	lIndex := fClasses.FindIndexOf(lMessage.NameOfClass);
+	If lIndex >= 0 Then
+	Begin
+		lActor := TActorThreadClass(fClasses.Items[lIndex]).Create(lMessage.NameOfInstance, True);
+		lActor.Start;
+		fInstances.Add(lActor.ActorName, lActor);
+		For lCtrl := 0 To lMessage.MessageCount - 1 Do
+			lActor.Mailbox.Push(lMessage.Messages[lCtrl].Clone);
+	End;
+End;
+
 Procedure TSwitchBoardActor.RemoveInstance(Var aMessage);
 Var
 	lMessage : TRemoveActorMessage;
 	lIndex : Integer;
 Begin
-	lMessage := UnbundleMessage(aMessage) As TRemoveActorMessage;
+	lMessage := Message As TRemoveActorMessage;
 	lIndex := fInstances.FindIndexOf(lMessage.Source);
 	If lIndex >= 0 Then
 	Begin
 		(fInstances.Items[lIndex] As TActorThread).Terminate;
+		(fInstances.Items[lIndex] As TActorThread).Free;
 		fInstances.Delete(lIndex);
 	End;
-End;
-
-Function UnbundleMessage(Const aMessage): TCustomActorMessage;
-Begin
-	Result := TCustomActorMessage(TInternalDispatchMessage(aMessage).Data);
 End;
 
 Procedure Init(Const aLocalName : String = ccDefaultMainThreadName; Const aLocalSwitchboardName : String = ccDefaultSwitchBoardName);
@@ -470,9 +487,14 @@ End;
 
 Procedure Fini;
 Begin
+	// Debug WriteLn('Asking switchboard to finish.');
 	SwitchBoard.MailBox.Push(TTerminateActorMessage.Create(MainThreadName, SwitchBoard.ActorName));
+	// Debug WriteLn('Waiting for switchboard to finish.');
 	SwitchBoard.WaitFor;
-	FreeAndNil(MainThreadQueue);
+	// Debug WriteLn('Freeing switchboard.');
+	SwitchBoard.Free;
+	// Debug WriteLn('Freeing main queue.');
+	MainThreadQueue.Free;
 End;
 
 Procedure RegisterActorClass(Const aClass : TClass);

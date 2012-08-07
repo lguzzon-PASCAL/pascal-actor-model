@@ -67,7 +67,7 @@ Procedure TLoggerActor.LogMessage(Var aMessage);
 Var
 	lMessage : TLogActorMessage;
 Begin
-	lMessage := UnbundleMessage(aMessage) As TLogActorMessage;
+	lMessage := Message As TLogActorMessage;
 	fLogger.Log(lMessage.Data);
 End;
 
@@ -75,7 +75,7 @@ Procedure TLoggerActor.WarningMessage(Var aMessage);
 Var
 	lMessage : TWarningActorMessage;
 Begin
-	lMessage := UnbundleMessage(aMessage) As TWarningActorMessage;
+	lMessage := Message As TWarningActorMessage;
 	fLogger.Warning(lMessage.Data);
 End;
 
@@ -83,7 +83,7 @@ Procedure TLoggerActor.ErrorMessage(Var aMessage);
 Var
 	lMessage : TErrorActorMessage;
 Begin
-	lMessage := UnbundleMessage(aMessage) As TErrorActorMessage;
+	lMessage := Message As TErrorActorMessage;
 	fLogger.Error(lMessage.Data);
 End;
 
@@ -91,7 +91,7 @@ Procedure TLoggerActor.DebugMessage(Var aMessage);
 Var
 	lMessage : TDebugActorMessage;
 Begin
-	lMessage := UnbundleMessage(aMessage) As TDebugActorMessage;
+	lMessage := Message As TDebugActorMessage;
 	fLogger.Debug(lMessage.Data);
 End;
 
@@ -99,7 +99,7 @@ Procedure TLoggerActor.InfoMessage(Var aMessage);
 Var
 	lMessage : TInfoActorMessage;
 Begin
-	lMessage := UnbundleMessage(aMessage) As TInfoActorMessage;
+	lMessage := Message As TInfoActorMessage;
 	fLogger.Info(lMessage.Data);
 End;
 

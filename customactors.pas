@@ -80,7 +80,7 @@ Procedure TWithTargetActor.SetTarget(Var aMessage);
 Var
 	lMessage : TSetTargetActorMessage;
 Begin
-	lMessage := UnbundleMessage(aMessage) As TSetTargetActorMessage;
+	lMessage := Message As TSetTargetActorMessage;
 	fTarget := lMessage.Data;
 End;
 
@@ -102,7 +102,7 @@ Procedure TWithTargetListActor.AddTarget(Var aMessage);
 Var
 	lMessage : TAddTargetActorMessage;
 Begin
-	lMessage := UnbundleMessage(aMessage) As TAddTargetActorMessage;
+	lMessage := Message As TAddTargetActorMessage;
 	fTargets.Add(lMessage.Data);
 End;
 
@@ -111,7 +111,7 @@ Var
 	lMessage : TDeleteTargetActorMessage;
 Begin
 	Try
-		lMessage := (UnbundleMessage(aMessage) As TDeleteTargetActorMessage);
+		lMessage := Message As TDeleteTargetActorMessage;
 		fTargets.Delete(fTargets.IndexOf(lMessage.Data));
 	Except
 		On E: Exception Do ;
@@ -123,12 +123,10 @@ End;
 Procedure TForwardCloneActor.DefaultHandlerStr(Var aMessage);
 Var
 	lCtrl : Integer;
-	lMessage : TCustomActorMessage;
 Begin
-	lMessage := UnbundleMessage(aMessage);
 	If fTargets.Count > 0 Then
 		For lCtrl := 0 To fTargets.Count - 1 Do
-			ForwardTo(fTargets[lCtrl], lMessage.Clone);
+			ForwardTo(fTargets[lCtrl], Message.Clone);
 End;
 
 // TLoadBalancerActor 

@@ -37,7 +37,7 @@ Procedure TScreenWriterActor.ScreenWrite(Var aMessage);
 Var
 	lMessage : TScreenMessage;
 Begin
-	lMessage := UnbundleMessage(aMessage) As TScreenMessage;
+	lMessage := Message As TScreenMessage;
 	WriteLn(ActorName, ': ', lMessage.Data);
 End;
 
