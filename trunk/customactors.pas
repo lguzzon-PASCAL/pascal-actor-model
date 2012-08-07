@@ -81,6 +81,7 @@ Var
 	lMessage : TSetTargetActorMessage;
 Begin
 	lMessage := Message As TSetTargetActorMessage;
+	// Debug WriteLn(ActorName, ' setting my target to ', lMessage.Data);
 	fTarget := lMessage.Data;
 End;
 
@@ -123,15 +124,22 @@ End;
 Procedure TForwardCloneActor.DefaultHandlerStr(Var aMessage);
 Var
 	lCtrl : Integer;
+	lMessage : TCustomActorMessage;
 Begin
 	If fTargets.Count > 0 Then
 		For lCtrl := 0 To fTargets.Count - 1 Do
-			SendTo(fTargets[lCtrl], Message.Clone);
+		Begin
+			lMessage := Message.Clone;
+			lMessage.Destination := fTargets[lCtrl];
+			Send(lMessage);
+		End;
 End;
 
 // TLoadBalancerActor 
 
 Procedure TLoadBalancerActor.DefaultHandlerStr(Var aMessage);
+Var
+	lMessage : TCustomActorMessage;
 Begin
 	If fTargets.Count > 0 Then
 	Begin
@@ -139,7 +147,9 @@ Begin
 			fCurrent := 0;
 		If fCurrent < 0 Then
 			fCurrent := 0;
-		SendTo(fTargets[fCurrent], SaveMessage);
+		lMessage := SaveMessage;
+		lMessage.Destination := fTargets[fCurrent];
+		Send(lMessage);
 		Inc(fCurrent);
 	End;
 End;

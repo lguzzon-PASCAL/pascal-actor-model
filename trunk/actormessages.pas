@@ -192,10 +192,23 @@ Type
 
 Var
 	ActorMessageClassFactory : TActorMessageClassFactory;
+	MessageCount : Int64;
+
 ThreadVar
 	LastRequestID : Int64;
+
+Procedure GlobalIncrementMessageCount;
+Procedure GlobalDecrementMessageCount;
 	
 Implementation
+
+Procedure GlobalIncrementMessageCount;
+Begin
+End;
+
+Procedure GlobalDecrementMessageCount;
+Begin
+End;
 
 // TCustomActorMessage
 
