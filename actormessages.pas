@@ -155,6 +155,8 @@ Type
 	End;
 
 	TConfigInstanceActorMessage = Class(TCustomNameValueActorMessage);
+	TGetConfigInstanceActorMessage = Class(TCustomStringActorMessage);
+	TGetConfigInstanceReplyActorMessage = Class(TCustomNameValueActorMessage);
 
 	TCreateInstanceAndConfigActorMessage = Class(TCreateInstanceActorMessage)
 	Private
@@ -401,6 +403,8 @@ Begin
 	ActorMessageClassFactory.RegisterMessage(TCreateInstanceActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TCreateInstanceAndConfigActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TConfigInstanceActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TGetConfigInstanceActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TGetConfigInstanceReplyActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TRegisterClassActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TUnregisterClassActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TCustomLogActorMessage);

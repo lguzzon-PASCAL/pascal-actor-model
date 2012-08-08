@@ -83,12 +83,14 @@ Type
 		// RTTI Handling for config
 		Function GetPropertyIndex(Const aName : String) : Integer;
 		Function GetPropertyType(Const aIndex : Integer) : TTypeKind;
+		Function GetPropertyValueByName(Const aName : String) : Variant;
 		Procedure SetPropertyValueByName(Const aName : String; Const aValue : Variant);
 		Procedure InitRTTI;
 		Procedure DoneRTTI;
 		// Message handlers
 		Procedure Quit(Var aMessage); Message 'tterminateactormessage';
 		Procedure ConfigInstance(Var aMessage); Message 'tconfiginstanceactormessage';
+		Procedure GetConfigOfInstance(Var aMessage); Message 'tgetconfiginstanceactormessage';
 		// Properties
 		Property ActorName : String Read fActorName;
 		Property Running : Boolean Read fRunning Write fRunning;
@@ -170,6 +172,7 @@ Begin
 		If Assigned(fMessage) Then
 			DispatchMessage;
 	Until fRunning = False;
+	Switchboard.Mailbox.Push(TRemoveActorMessage.Create(ActorName, Switchboard.ActorName));
 End;
 
 Procedure TActorThread.Idle;
@@ -267,6 +270,26 @@ Begin
 	DoneMessage;
 End;
 
+Function TActorThread.GetPropertyValueByName(Const aName : String) : Variant;
+Begin
+	Case GetPropertyType(GetPropertyIndex(aName)) Of
+		tkInteger     : Result := GetInt64Prop(Self, aName);
+		tkChar        : Result := GetStrProp(Self, aName);
+		tkEnumeration : Result := GetEnumProp(Self, aName);
+		tkFloat       : Result := GetFloatProp(Self, aName);
+		tkSet         : Result := GetSetProp(Self, aName, True);
+		tkSString     : Result := GetStrProp(Self, aName);
+		tkLString     : Result := GetStrProp(Self, aName);
+		tkAString     : Result := GetStrProp(Self, aName);
+		tkWString     : Result := GetWideStrProp(Self, aName);
+		tkVariant     : Result := GetVariantProp(Self, aName);
+		tkWChar       : Result := GetWideStrProp(Self, aName);
+		tkBool        : Result := GetEnumProp(Self, aName);
+		tkInt64       : Result := GetInt64Prop(Self, aName);
+		tkQWord       : Result := GetInt64Prop(Self, aName);
+	End
+End;
+
 Procedure TActorThread.SetPropertyValueByName(Const aName : String; Const aValue : Variant);
 Begin
 	Case GetPropertyType(GetPropertyIndex(aName)) Of
@@ -331,6 +354,28 @@ Begin
 	Try
 		lMessage := fMessage As TConfigInstanceActorMessage;
 		SetPropertyValueByName(lMessage.Name, lMessage.Value);
+	Except
+		On E: Exception Do 
+		Begin
+			lError := TErrorActorMessage.Create(ActorName, ccDefaultLogger);
+			lError.Data := E.Message;
+			Send(lError);
+		End;
+	End;
+End;
+
+Procedure TActorThread.GetConfigOfInstance(Var aMessage);
+Var
+	lRequestMessage : TGetConfigInstanceActorMessage;
+	lReplyMessage : TGetConfigInstanceReplyActorMessage;
+	lError : TErrorActorMessage;
+Begin
+	Try
+		lRequestMessage := fMessage As TGetConfigInstanceActorMessage;
+		lReplyMessage := TGetConfigInstanceReplyActorMessage.Create('', '');
+		lReplyMessage.Name := lRequestMessage.Data;
+		lReplyMessage.Value := GetPropertyValueByName(lRequestMessage.Data);
+		Reply(lReplyMessage);
 	Except
 		On E: Exception Do 
 		Begin

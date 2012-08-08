@@ -23,7 +23,8 @@ Uses
 	Classes,
 	SysUtils,
 	ActorMessages,
-	Actors;
+	Actors,
+	ActorLogger;
 
 Type
 	{ Actor with target }
@@ -116,7 +117,8 @@ Begin
 		lMessage := Message As TDeleteTargetActorMessage;
 		fTargets.Delete(fTargets.IndexOf(lMessage.Data));
 	Except
-		On E: Exception Do ;
+		On E: Exception Do 
+			ThrowError(E.Message);
 	End;
 End;
 
