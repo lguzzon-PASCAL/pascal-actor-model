@@ -92,6 +92,7 @@ Var
 Begin
 	lMessage := Message As TErrorActorMessage;
 	fLogger.Error(lMessage.Data);
+	{ Debug } WriteLn(lMessage.Data);
 End;
 
 Procedure TLoggerActor.DebugMessage(Var aMessage);
@@ -130,7 +131,7 @@ Var
 Begin
 	lLog := TLogActorMessage.Create(MainThreadName, ccDefaultLogger);
 	lLog.Data := aMessage;
-	Send(lLog);
+	Switchboard.Mailbox.Push(lLog);
 End;
 
 Procedure ThrowWarning(Const aMessage : String);
@@ -139,7 +140,7 @@ Var
 Begin
 	lWarning := TWarningActorMessage.Create(MainThreadName, ccDefaultLogger);
 	lWarning.Data := aMessage;
-	Send(lWarning);
+	Switchboard.Mailbox.Push(lWarning);
 End;
 
 Procedure ThrowError(Const aMessage : String);
@@ -148,7 +149,7 @@ Var
 Begin
 	lError := TErrorActorMessage.Create(MainThreadName, ccDefaultLogger);
 	lError.Data := aMessage;
-	Send(lError);
+	Switchboard.Mailbox.Push(lError);
 End;
 
 Procedure ThrowDebug(Const aMessage : String);
@@ -157,7 +158,7 @@ Var
 Begin
 	lDebug := TDebugActorMessage.Create(MainThreadName, ccDefaultLogger);
 	lDebug.Data := aMessage;
-	Send(lError);
+	Switchboard.Mailbox.Push(lDebug);
 End;
 
 Procedure ThrowInfo(Const aMessage : String);
@@ -166,7 +167,7 @@ Var
 Begin
 	lInfo := TInfoActorMessage.Create(MainThreadName, ccDefaultLogger);
 	lInfo.Data := aMessage;
-	Send(lInfo);
+	Switchboard.Mailbox.Push(lInfo);
 End;
 
 End.

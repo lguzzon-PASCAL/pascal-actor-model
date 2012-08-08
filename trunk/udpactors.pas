@@ -47,7 +47,7 @@ Type
 		Property ReceiverPort : String Read fReceiverPort Write fReceiverPort;
 	End;
 	
-	TStartUDPListenerMessage = Class(TCustomActorMessage);
+	TSetUDPToListenMessage = Class(TCustomActorMessage);
 
 	TUDPReceiver = Class(TWithTargetActor)
 	Private
@@ -66,7 +66,7 @@ Type
 		); Override;
 		Destructor Destroy; Override;
 		Procedure Idle; Override;
-		Procedure StartListener(Var aMessage); Message 'tstartudplistenermessage';
+		Procedure StartListener(Var aMessage); Message 'tsetudptolistenmessage';
 	Published
 		Property IP : String Read fIP Write fIP;
 		Property Port : String Read fPort Write fPort;
@@ -123,7 +123,6 @@ Var
 	lSourcePort,
 	lDestIP,
 	lDestPort : String;
-	lError : TErrorActorMessage;
 	lMessage : TUDPMessage;
 	lBuffer : String;
 Begin
@@ -136,11 +135,7 @@ Begin
 			lDestPort := IntToStr(fSocket.GetLocalSinPort);
 			lBuffer := fSocket.RecvPacket(fSocketTimeout);
 			If fSocket.LastError <> 0 Then
-			Begin
-				lError := TErrorActorMessage.Create(ActorName, ccDefaultLogger);
-				lError.Data := fSocket.LastErrorDesc;
-				Send(lError);
-			End
+				ThrowError(fSocket.LastErrorDesc)
 			Else
 			Begin
 				lMessage := TUDPMessage.Create(ActorName, Target);
@@ -155,19 +150,13 @@ Begin
 End;
 
 Procedure TUDPReceiver.StartListener(Var aMessage);
-Var
-	lError : TErrorActorMessage;
 Begin
 	fSocketRunning := True;
 	fSocketTimeout := Timeout;
 	Timeout := 0;
 	fSocket.Bind(fIP, fPort);
 	If fSocket.LastError <> 0 Then
-	Begin
-		lError := TErrorActorMessage.Create(ActorName, ccDefaultLogger);
-		lError.Data := fSocket.LastErrorDesc;
-		Send(lError);
-	End;
+		ThrowError(fSocket.LastErrorDesc);
 End;
 
 // TUDPSender
@@ -176,32 +165,19 @@ Procedure TUDPSender.SendString(Var aMessage);
 Var
 	lSocket : TUDPBlockSocket;
 	lMessage : TUDPMessage;
-	lError : TErrorActorMessage;
 Begin
 	lMessage := Message As TUDPMessage;
 	Try
 		lSocket := TUDPBlockSocket.Create;
 		lSocket.Bind(lMessage.SenderIP, lMessage.SenderPort);
 		If lSocket.LastError <> 0 Then
-		Begin
-			lError := TErrorActorMessage.Create(ActorName, ccDefaultLogger);
-			lError.Data := lSocket.LastErrorDesc;
-			Send(lError);
-		End;
+			ThrowError(lSocket.LastErrorDesc);
 		lSocket.Connect(lMessage.ReceiverIP, lMessage.ReceiverPort);
 		If lSocket.LastError <> 0 Then
-		Begin
-			lError := TErrorActorMessage.Create(ActorName, ccDefaultLogger);
-			lError.Data := lSocket.LastErrorDesc;
-			Send(lError);
-		End;
+			ThrowError(lSocket.LastErrorDesc);
 		lSocket.SendString(lMessage.Data);
 		If lSocket.LastError <> 0 Then
-		Begin
-			lError := TErrorActorMessage.Create(ActorName, ccDefaultLogger);
-			lError.Data := lSocket.LastErrorDesc;
-			Send(lError);
-		End;
+			ThrowError(lSocket.LastErrorDesc);
 	Finally
 		FreeAndNil(lSocket);
 	End;
@@ -220,14 +196,14 @@ End;
 Procedure RegisterMessages;
 Begin
 	ActorMessageClassFactory.RegisterMessage(TUDPMessage);
-	ActorMessageClassFactory.RegisterMessage(TStartUDPListenerMessage);
+	ActorMessageClassFactory.RegisterMessage(TSetUDPToListenMessage);
 End;
 
 Procedure SetUDPToListen(Const aInstanceName : String);
 Var
-	lMessage : TStartUDPListenerMessage;
+	lMessage : TSetUDPToListenMessage;
 Begin
-	lMessage := TStartUDPListenerMessage.Create(MainThreadName, aInstanceName);
+	lMessage := TSetUDPToListenMessage.Create(MainThreadName, aInstanceName);
 	Switchboard.Mailbox.Push(lMessage);
 End;
 
@@ -238,7 +214,6 @@ Begin
 	ConfigActor(aInstanceName, 'ip', aIP);
 	ConfigActor(aInstanceName, 'port', aPort);
 	ConfigActor(aInstanceName, 'packetmaxsize', aMaxPacketSize);
-	SetUDPToListen(aInstanceName);
 End;
 
 End.
