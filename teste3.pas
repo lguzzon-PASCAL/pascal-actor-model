@@ -43,7 +43,7 @@ End;
 Var
 	gBuffer : String;
 	gUDPMessage : TUDPMessage;
-	
+
 Begin
 	// Register messages
 	ActorMessages.RegisterMessages;
@@ -51,34 +51,33 @@ Begin
 	ActorLogger.RegisterMessages;
 	CustomActors.RegisterMessages;
 	UDPActors.RegisterMessages;
-	
+
 	// Initialize systems
 	Actors.Init('localhost', 'switchboard');
 	ActorLogger.Init;
 	CustomActors.Init;
 	UDPActors.Init;
-	
+
 	// Register aditional actor classes
 	RegisterActorClass(TScreenWriterActor);
-	
+
 	// Start actors and set config
 	StartActorInstance('TScreenWriterActor', 'screen1');
 	StartActorInstance('TUDPReceiver', 'udpreceive1');
-	StartActorInstance('TUDPSender', 'udpsender1');
 	StartAUDPReceiver('udpreceiver1', 'screen1', ParamStr(1), ParamStr(2), 1500);
-	SetUDPToListen('udpreceiver1');
-	
+	StartAUDPPairedSender('udpsender1', 'udpreceiver1');
+
 	Repeat
 		Write('Local>'); ReadLn(gBuffer);
 		gUDPMessage := TUDPMessage.Create(MainThreadName, 'udpsender1');
 		gUDPMessage.Data := gBuffer;
-		gUDPMessage.SenderIP := ParamStr(3);
-		gUDPMessage.SenderPort := ParamStr(4);
-		gUDPMessage.ReceiverIP := ParamStr(5);
-		gUDPMessage.ReceiverPort := ParamStr(6);
+		gUDPMessage.SenderIP := '';
+		gUDPMessage.SenderPort := '';
+		gUDPMessage.ReceiverIP := ParamStr(3);
+		gUDPMessage.ReceiverPort := ParamStr(4);
 		Switchboard.Mailbox.Push(gUDPMessage);
 	Until gBuffer = 'quit';
-	
+
 	// Finish actors
 	UDPActors.Fini;
 	CustomActors.Fini;
