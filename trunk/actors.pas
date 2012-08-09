@@ -78,7 +78,7 @@ Type
 		Function SaveMessage: TCustomActorMessage;
 		Procedure Send(Const aMessage : TCustomActorMessage); Virtual;
 		Procedure Reply(aMessage : TCustomActorMessage);
-		Procedure Request(Var aMessage : TCustomActorMessage; Const aTimeout : Integer);
+		Procedure Request(Const aMessage : TCustomActorMessage; Const aTimeout : Integer);
 		Procedure DispatchMessage;
 		// RTTI Handling for config
 		Function GetPropertyIndex(Const aName : String) : Integer;
@@ -221,7 +221,7 @@ Begin
 	Send(aMessage);
 End;
 
-Procedure TActorThread.Request(Var aMessage : TCustomActorMessage; Const aTimeout : Integer);
+Procedure TActorThread.Request(Const aMessage : TCustomActorMessage; Const aTimeout : Integer);
 Var
 	lRequestID : Int64;
 	lFound : Boolean;

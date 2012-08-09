@@ -46,11 +46,13 @@ Type
 		Property ReceiverIP : String Read fReceiverIP Write fReceiverIP;
 		Property ReceiverPort : String Read fReceiverPort Write fReceiverPort;
 	End;
-	
+
 	TSetUDPToListenMessage = Class(TCustomActorMessage);
+	TSetUDPToSendMessage = Class(TCustomStringActorMessage);
 
 	TUDPReceiver = Class(TWithTargetActor)
 	Private
+		fSocketInt : Integer;
 		fSocketTimeout : Integer;
 		fSocket : TUDPBlockSocket;
 		fSocketRunning : Boolean;
@@ -70,20 +72,40 @@ Type
 	Published
 		Property IP : String Read fIP Write fIP;
 		Property Port : String Read fPort Write fPort;
+		Property SocketInt : Integer Read fSocketInt Write fSocketInt;
 		Property PacketMaxSize : Integer Read fPacketMaxSize Write fPacketMaxSize;
 	End;
-	
+
 	TUDPSender = Class(TActorThread)
 	Public
 		Procedure SendString(Var aMessage); Message 'tudpmessage';
 	End;
-	
+
+	TPairedUDPSender = Class(TActorThread)
+	Private
+		fSocket : TUDPBlockSocket;
+		fSocketRunning : Boolean;
+	Public
+		Constructor Create(
+			Const aName : String = '';
+			CreateSuspended : Boolean = False;
+			Const StackSize : SizeUInt = DefaultStackSize;
+			Const aTimeout : Integer = ccDefaultTimeout
+		); Override;
+		Destructor Destroy; Override;
+		Procedure SendString(Var aMessage); Message 'tudpmessage';
+		Procedure StartSender(Var aMessage); Message 'tsetudptosendmessage';
+	End;
+
 Procedure Init;
 Procedure Fini;
 Procedure RegisterMessages;
 
 Procedure SetUDPToListen(Const aInstanceName : String);
+Procedure SetUDPToSend(Const aInstanceName, aReceiverName : String);
+
 Procedure StartAUDPReceiver(Const aInstanceName, aTarget, aIP, aPort : String; Const aMaxPacketSize : Integer);
+Procedure StartAUDPPairedSender(Const aInstanceName, aPairedReceiver : String);
 
 Implementation
 
@@ -109,6 +131,7 @@ Begin
 	fIP := '127.0.0.1';
 	fPort := '1024';
 	fPacketMaxSize := 4096;
+	fSocketInt := -1;
 End;
 
 Destructor TUDPReceiver.Destroy;
@@ -157,6 +180,7 @@ Begin
 	fSocket.Bind(fIP, fPort);
 	If fSocket.LastError <> 0 Then
 		ThrowError(fSocket.LastErrorDesc);
+	fSocketInt := fSocket.Socket;
 End;
 
 // TUDPSender
@@ -183,10 +207,66 @@ Begin
 	End;
 End;
 
+// TPairedUDPSender
+
+Constructor TPairedUDPSender.Create(Const aName : String = ''; CreateSuspended : Boolean = False;
+	Const StackSize : SizeUInt = DefaultStackSize; Const aTimeout : Integer = ccDefaultTimeout);
+Begin
+	Inherited Create(aName, CreateSuspended, StackSize, aTimeout);
+	fSocket := TUDPBlockSocket.Create;
+	fSocketRunning := False;
+End;
+
+Destructor TPairedUDPSender.Destroy;
+Begin
+	FreeAndNil(fSocket);
+	Inherited Destroy;
+End;
+
+Procedure TPairedUDPSender.SendString(Var aMessage);
+Var
+	lMessage : TUDPMessage;
+Begin
+	lMessage := Message As TUDPMessage;
+	If fSocketRunning Then
+	Begin
+		fSocket.Connect(lMessage.ReceiverIP, lMessage.ReceiverPort);
+		If fSocket.LastError <> 0 Then
+			ThrowError(fSocket.LastErrorDesc);
+		fSocket.SendString(lMessage.Data);
+		If fSocket.LastError <> 0 Then
+			ThrowError(fSocket.LastErrorDesc);
+	End;
+End;
+
+Procedure TPairedUDPSender.StartSender(Var aMessage);
+Var
+	lMessage : TSetUDPToSendMessage;
+	lSocketRequest : TGetConfigInstanceActorMessage;
+	lSocketReply : TGetConfigInstanceReplyActorMessage;
+Begin
+	Try
+		lMessage := SaveMessage As TSetUDPToSendMessage;
+		lSocketRequest := TGetConfigInstanceActorMessage.Create(ActorName, lMessage.Data);
+		lSocketRequest.Data := 'SocketInt';
+		Request(lSocketRequest, Timeout * 2);
+		If Assigned(Message) And (Message Is TGetConfigInstanceReplyActorMessage) Then
+		Begin
+			lSocketReply := Message As TGetConfigInstanceReplyActorMessage;
+			fSocket.Socket := lSocketReply.Value;
+			fSocket.GetSins;
+			fSocketRunning := True;
+		End;
+	Finally
+		FreeAndNil(lMessage);
+	End;
+End;
+
 Procedure Init;
 Begin
 	RegisterActorClass(TUDPReceiver);
 	RegisterActorClass(TUDPSender);
+	RegisterActorClass(TPairedUDPSender);
 End;
 
 Procedure Fini;
@@ -197,6 +277,7 @@ Procedure RegisterMessages;
 Begin
 	ActorMessageClassFactory.RegisterMessage(TUDPMessage);
 	ActorMessageClassFactory.RegisterMessage(TSetUDPToListenMessage);
+	ActorMessageClassFactory.RegisterMessage(TSetUDPToSendMessage);
 End;
 
 Procedure SetUDPToListen(Const aInstanceName : String);
@@ -207,6 +288,15 @@ Begin
 	Switchboard.Mailbox.Push(lMessage);
 End;
 
+Procedure SetUDPToSend(Const aInstanceName, aReceiverName : String);
+Var
+	lMessage : TSetUDPToSendMessage;
+Begin
+	lMessage := TSetUDPToSendMessage.Create(MainThreadName, aInstanceName);
+	lMessage.Data := aReceiverName;
+	Switchboard.Mailbox.Push(lMessage);
+End;
+
 Procedure StartAUDPReceiver(Const aInstanceName, aTarget, aIP, aPort : String; Const aMaxPacketSize : Integer);
 Begin
 	StartActorInstance('TUDPReceiver', aInstanceName);
@@ -214,6 +304,13 @@ Begin
 	ConfigActor(aInstanceName, 'ip', aIP);
 	ConfigActor(aInstanceName, 'port', aPort);
 	ConfigActor(aInstanceName, 'packetmaxsize', aMaxPacketSize);
+	SetUDPToListen(aInstanceName);
+End;
+
+Procedure StartAUDPPairedSender(Const aInstanceName, aPairedReceiver : String);
+Begin
+	StartActorInstance('TPairedUDPSender', aInstanceName);
+	SetUDPToSend(aInstanceName, aPairedReceiver);
 End;
 
 End.
