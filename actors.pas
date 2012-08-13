@@ -65,7 +65,7 @@ Type
 		Procedure Execute; Override;
 		Procedure Idle; Virtual;
 		Procedure Send(Const aMessage : TCustomActorMessage);
-		Function Request(Const aMessage : TCustomActorMessage; Const aTimeout : Integer): Boolean;
+		Function Request(Const aMessage : TCustomActorMessage): Boolean;
 		Procedure Reply(aMessage : TCustomActorMessage);
 		Procedure DispatchTopMessage;
 		// Properties
@@ -225,13 +225,13 @@ Begin
 	SwitchBoard.Mailbox.Push(aMessage);
 End;
 
-Function TActorThread.Request(Const aMessage : TCustomActorMessage; Const aTimeout : Integer): Boolean;
+Function TActorThread.Request(Const aMessage : TCustomActorMessage): Boolean;
 Var
 	lRequestID : Int64;
 Begin
 	lRequestID := aMessage.TransactionID;
 	Send(aMessage);
-	Result := fMailbox.WaitForTransaction(lRequestID, aTimeout);
+	Result := fMailbox.WaitForTransaction(lRequestID, fTimeout);
 End;
 
 Procedure TActorThread.Reply(aMessage : TCustomActorMessage);
