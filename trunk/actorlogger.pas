@@ -92,7 +92,7 @@ Var
 Begin
 	lMessage := Message As TErrorActorMessage;
 	fLogger.Error(lMessage.Data);
-	{ Debug } WriteLn(lMessage.Data);
+	// Debug WriteLn(lMessage.Data);
 End;
 
 Procedure TLoggerActor.DebugMessage(Var aMessage);
