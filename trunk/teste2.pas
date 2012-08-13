@@ -52,7 +52,7 @@ Type
 	
 	TPongActor = Class(TActorThread)
 	Public
-		Procedure PingMessage(Var aMessage); Message 'tpingmessage';
+		Procedure PingMessage(Var aMessage); Message 'TPingMessage';
 	End;
 
 // TPingMessage
@@ -75,22 +75,23 @@ End;
 	
 Procedure TPingActor.Idle;
 Var
-	lMessage : TCustomActorMessage;
+	lMessage : TPingMessage;
 Begin
-	If Target <> '' Then
+	If (Target <> '') And (Random(100) < 25) Then
 	Begin
 		lMessage := TPingMessage.Create(ActorName, Target);
-		(lMessage As TPingMessage).Time := Now;
-		// Debug WriteLn('Sending ping...(', lMessage.TransactionID, ')');
-		Request(lMessage, ccDefaultTimeout * 10);
-		If Assigned(Message) Then
+		lMessage.Time := Now;
+		WriteLn(ActorName, ' sending ping...(', lMessage.TransactionID, ')');
+		If Request(lMessage) Then
 		Begin
-			// Debug WriteLn('Pong received.');
-			// Debug WriteLn('Time : ', (Message As TPongMessage).Time);
-			// Debug WriteLn('Now : ', Now);
-			// Debug WriteLn('Millisec : ', MilliSecondsBetween(Now, (Message As TPongMessage).Time));
-			DoneMessage;
-		End;
+			WriteLn(ActorName, ' pong received.');
+			WriteLn(ActorName, ' Time : ', TimeToStr((Message As TPongMessage).Time));
+			WriteLn(ActorName, ' Now : ', TimeToStr(Now));
+			WriteLn(ActorName, ' Millisec : ', MilliSecondsBetween(Now, (Message As TPongMessage).Time));
+			Mailbox.Drop;
+		End
+		Else
+			WriteLn(ActorName, ' ping timeout.');
 	End;
 End;
 
@@ -98,14 +99,22 @@ End;
 
 Procedure TPongActor.PingMessage(Var aMessage);
 Var
-	lMessage : TPongMessage;
+	lPingMessage : TPingMessage;
+	lPongMessage : TPongMessage;
 Begin
-	// Debug WriteLn('Received ping...(', Message.TransactionID, ')');
-	lMessage := TPongMessage.Create('', '');
-	lMessage.Time := (Message As TPingMessage).Time;
-	// Debug WriteLn('Sending pong...');
-	Reply(lMessage);
-	// Debug WriteLn('Pong sent.');
+	lPingMessage := Mailbox.Pop As TPingMessage;
+	Try
+		WriteLn(ActorName, ' received ping...(', lPingMessage.TransactionID, ')');
+		lPongMessage := TPongMessage.Create(ActorName, lPingMessage.Source);
+		lPongMessage.TransactionID := lPingMessage.TransactionID;
+		lPongMessage.Time := (lPingMessage As TPingMessage).Time;
+		WriteLn(ActorName, ' sending pong...');
+		Sleep(100);
+		Send(lPongMessage);
+		WriteLn(ActorName, ' Pong sent.');
+	Finally
+		FreeAndNil(lPingMessage);
+	End;
 End;
 
 Var
@@ -116,11 +125,12 @@ Begin
 	ActorMessages.RegisterMessages;
 	Actors.RegisterMessages;
 	ActorLogger.RegisterMessages;
-	CustomActors.RegisterMesssages;
+	CustomActors.RegisterMessages;
 	ActorMessageClassFactory.RegisterMessage(TPingMessage);
 	ActorMessageClassFactory.RegisterMessage(TPongMessage);
 
 	// Initialize systems
+	ActorMessages.Init;
 	Actors.Init('localhost', 'switchboard');
 	ActorLogger.Init;
 	CustomActors.Init;
@@ -142,4 +152,5 @@ Begin
 	CustomActors.Fini;
 	ActorLogger.Fini;
 	Actors.Fini;
+	ActorMessages.Fini;
 End.

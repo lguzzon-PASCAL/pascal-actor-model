@@ -29,15 +29,19 @@ Uses
 Type
 	TScreenWriterActor = Class(TActorThread)
 	Public
-		Procedure ScreenWrite(Var aMessage); Message 'tudpmessage';
+		Procedure ScreenWrite(Var aMessage); Message 'TUDPMessage';
 	End;
 
 Procedure TScreenWriterActor.ScreenWrite(Var aMessage);
 Var
 	lMessage : TUDPMessage;
 Begin
-	lMessage := Message As TUDPMessage;
-	WriteLn(lMessage.SenderIP, '>', lMessage.Data);
+	lMessage := Mailbox.Pop As TUDPMessage;
+	Try
+		WriteLn(lMessage.SenderIP, '>', lMessage.Data);
+	Finally
+		FreeAndNil(lMessage);
+	End;
 End;
 
 Var
@@ -53,6 +57,7 @@ Begin
 	UDPActors.RegisterMessages;
 
 	// Initialize systems
+	ActorMessages.Init;
 	Actors.Init('localhost', 'switchboard');
 	ActorLogger.Init;
 	CustomActors.Init;
@@ -68,13 +73,16 @@ Begin
 
 	Repeat
 		Write('Local>'); ReadLn(gBuffer);
-		gUDPMessage := TUDPMessage.Create(MainThreadName, 'udpsender1');
-		gUDPMessage.Data := gBuffer;
-		gUDPMessage.SenderIP := '';
-		gUDPMessage.SenderPort := '';
-		gUDPMessage.ReceiverIP := ParamStr(3);
-		gUDPMessage.ReceiverPort := ParamStr(4);
-		Switchboard.Mailbox.Push(gUDPMessage);
+		If gBuffer <> 'quit' Then
+		Begin
+			gUDPMessage := TUDPMessage.Create(MainThreadName, 'udpsender1');
+			gUDPMessage.Data := gBuffer;
+			gUDPMessage.SenderIP := '';
+			gUDPMessage.SenderPort := '';
+			gUDPMessage.ReceiverIP := ParamStr(3);
+			gUDPMessage.ReceiverPort := ParamStr(4);
+			Switchboard.Mailbox.Push(gUDPMessage);
+		End;
 	Until gBuffer = 'quit';
 
 	// Finish actors
@@ -82,4 +90,5 @@ Begin
 	CustomActors.Fini;
 	ActorLogger.Fini;
 	Actors.Fini;
+	ActorMessages.Fini;
 End.

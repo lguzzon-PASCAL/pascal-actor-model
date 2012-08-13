@@ -34,7 +34,7 @@ Type
 		fTarget : String;
 	Public
 		Property Target : String Read fTarget;
-		Procedure SetTarget(Var aMessage); Message 'tsettargetactormessage';
+		Procedure SetTarget(Var aMessage); Message 'TSetTargetActorMessage';
 	End;
 
 	{ Actor with target list }
@@ -44,10 +44,10 @@ Type
 		fTargets : TStringList;
 	Public
 		Property Targets : TStringList Read fTargets;
-		Constructor Create(Const aName : String = ''; CreateSuspended : Boolean = True; Const StackSize : SizeUInt = DefaultStackSize; Const aTimeout : Integer = ccDefaultTimeout); Override;
+		Constructor Create(Const aName : String = ccDefaultSwitchBoardName; Const aTimeout : Integer = ccDefaultTimeout); Override;
 		Destructor Destroy; Override;
-		Procedure AddTarget(Var aMessage); Message 'taddtargetactormessage';
-		Procedure DelTarget(var aMessage); Message 'tdeletetargetactormessage';
+		Procedure AddTarget(Var aMessage); Message 'TAddTargetActorMessage';
+		Procedure DelTarget(var aMessage); Message 'TDeleteTargetActorMessage';
 	End;
 
 	{ Forwarder/Cloner Actor }
@@ -89,9 +89,9 @@ End;
 
 // TWithTargetListActor
 
-Constructor TWithTargetListActor.Create(Const aName : String = ''; CreateSuspended : Boolean = True; Const StackSize : SizeUInt = DefaultStackSize; Const aTimeout : Integer = ccDefaultTimeout);
+Constructor TWithTargetListActor.Create(Const aName : String = ccDefaultSwitchBoardName; Const aTimeout : Integer = ccDefaultTimeout);
 Begin
-	Inherited Create(aName, CreateSuspended, StackSize, aTimeout);
+	Inherited Create(aName);
 	fTargets := TStringList.Create;
 End;
 
@@ -150,7 +150,7 @@ Begin
 			fCurrent := 0;
 		If fCurrent < 0 Then
 			fCurrent := 0;
-		lMessage := SaveMessage;
+		lMessage := Mailbox.Pop;
 		lMessage.Destination := fTargets[fCurrent];
 		Send(lMessage);
 		Inc(fCurrent);

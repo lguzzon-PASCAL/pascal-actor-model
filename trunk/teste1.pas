@@ -30,15 +30,19 @@ Type
 
 	TScreenWriterActor = Class(TActorThread)
 	Public
-		Procedure ScreenWrite(Var aMessage); Message 'tscreenmessage';
+		Procedure ScreenWrite(Var aMessage); Message 'TScreenMessage';
 	End;
 
 Procedure TScreenWriterActor.ScreenWrite(Var aMessage);
 Var
 	lMessage : TScreenMessage;
 Begin
-	lMessage := Message As TScreenMessage;
-	WriteLn(ActorName, ': ', lMessage.Data);
+	lMessage := Mailbox.Pop As TScreenMessage;
+	Try
+		WriteLn(ActorName, ': ', lMessage.Data);
+	Finally
+		FreeAndNil(lMessage);
+	End;
 End;
 
 Var
@@ -50,10 +54,11 @@ Begin
 	ActorMessages.RegisterMessages;
 	Actors.RegisterMessages;
 	ActorLogger.RegisterMessages;
-	CustomActors.RegisterMesssages;
+	CustomActors.RegisterMessages;
 	ActorMessageClassFactory.RegisterMessage(TScreenMessage);
 	
 	// Initialize systems
+	ActorMessages.Init;
 	Actors.Init('localhost', 'switchboard');
 	ActorLogger.Init;
 	CustomActors.Init;
@@ -84,4 +89,5 @@ Begin
 	CustomActors.Fini;
 	ActorLogger.Fini;
 	Actors.Fini;
+	ActorMessages.Fini;
 End.
