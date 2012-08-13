@@ -261,8 +261,8 @@ End;
 Procedure TActorThread.DispatchTopMessage;
 Begin
 	Try
-		{ Debug } WriteLn(ActorName, ' is handling message ', Message.ClassName);
-		{ Debug } WriteLn(ActorName, ' mailbox count ', fMailbox.Count);
+		// Debug WriteLn(ActorName, ' is handling message ', Message.ClassName);
+		// Debug WriteLn(ActorName, ' mailbox count ', fMailbox.Count);
 		DispatchEvent(fMailbox.Top.ClassName, Nil);
 	Finally
 		fMailbox.Drop;
@@ -371,16 +371,16 @@ Begin
 				Else
 					Route;
 	End;
-	{ Debug } WriteLn('Running actors : ', fInstances.Count);
+	// Debug WriteLn('Running actors : ', fInstances.Count);
 	If fInstances.Count > 0 Then
 		AskAllActorsToQuit;
-	{ Debug } WriteLn('Running actors : ', fInstances.Count);
+	// Debug WriteLn('Running actors : ', fInstances.Count);
 	If fInstances.Count > 0 Then
 		WaitForActorsToQuit(Timeout * 1000);
-	{ Debug } WriteLn('Running actors : ', fInstances.Count);
+	// Debug WriteLn('Running actors : ', fInstances.Count);
 	If fInstances.Count > 0 Then
 		KillAllActors;
-	{ Debug } WriteLn('Running actors : ', fInstances.Count);
+	// Debug WriteLn('Running actors : ', fInstances.Count);
 End;
 
 Procedure TSwitchBoardActor.Route;
@@ -399,10 +399,10 @@ Procedure TSwitchBoardActor.AskAllActorsToQuit;
 Var
 	lCtrl : Integer;
 Begin
-	{ Debug } WriteLn('Quitting all actors.');
+	// Debug WriteLn('Quitting all actors.');
 	For lCtrl := 0 To fInstances.Count - 1 Do
 	Begin
-		{ Debug } WriteLn('Asking ', (fInstances.Items[lCtrl] As TActorThread).ActorName, ' to quit.');
+		// Debug WriteLn('Asking ', (fInstances.Items[lCtrl] As TActorThread).ActorName, ' to quit.');
 		(fInstances.Items[lCtrl] As TActorThread).Mailbox.Push(TTerminateActorMessage.Create(ActorName, (fInstances.Items[lCtrl] As TActorThread).ActorName));
 	End;
 End;
@@ -462,7 +462,7 @@ Var
 Begin
 	For lCtrl := 0 To fInstances.Count - 1 Do
 	Begin
-		{ Debug } WriteLn('Forcefully making ', (fInstances.Items[lCtrl] As TActorThread).ActorName, ' quit.');
+		// Debug WriteLn('Forcefully making ', (fInstances.Items[lCtrl] As TActorThread).ActorName, ' quit.');
 		(fInstances.Items[lCtrl] As TActorThread).Terminate;
 		fInstances.Delete(lCtrl);
 	End;

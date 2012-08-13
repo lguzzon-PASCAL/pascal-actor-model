@@ -150,7 +150,7 @@ Begin
 				ThrowError(fSocket.LastErrorDesc)
 			Else
 			Begin
-				{ Debug } WriteLn(ActorName, ': ', lBuffer);
+				// Debug WriteLn(ActorName, ': ', lBuffer);
 				lMessage := TUDPMessage.Create(ActorName, Target);
 				lMessage.Data := lBuffer;
 				lMessage.SenderIP := lSourceIP;
@@ -219,7 +219,7 @@ Var
 	lMessage : TUDPMessage;
 Begin
 	lMessage := Message As TUDPMessage;
-	{ Debug } WriteLn(ActorName, ': ', lMessage.Data);
+	// Debug WriteLn(ActorName, ': ', lMessage.Data);
 	If fSocketRunning Then
 	Begin
 		fSocket.Connect(lMessage.ReceiverIP, lMessage.ReceiverPort);
