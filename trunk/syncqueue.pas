@@ -24,7 +24,8 @@ Uses
 	SysUtils,
 	SyncObjs,
 	ActorMessages,
-	ContNrs;
+	ContNrs,
+	DateUtils;
 
 Type
 	// Synchronized Queue
@@ -41,6 +42,11 @@ Type
 		Function AtLeast(Const aCount : Integer): Boolean;
 		Procedure Push(Const aObject : TCustomActorMessage);
 		Function Pop : TCustomActorMessage;
+		Function Top : TCustomActorMessage;
+		Procedure Recycle;
+		Procedure Drop;
+		Function WaitForMessage(Const aTimeout : Integer): Boolean;
+		Function WaitForTransaction(Const aTransactionID : Int64; Const aTimeout : Integer): Boolean;
 		Constructor Create;
 		Destructor Destroy; Override;
 	End;
@@ -93,6 +99,99 @@ Begin
 	Finally
 		fSynchronizer.EndWrite;
 	End;
+End;
+
+Function TCustomSynchronizedQueue.Top : TCustomActorMessage;
+Begin
+	Try
+		fSynchronizer.BeginRead;
+		Result := (fQueue.Peek As TCustomActorMessage);
+	Finally
+		fSynchronizer.EndRead;
+	End;
+End;
+
+Procedure TCustomSynchronizedQueue.Recycle;
+Begin
+	Try
+		fSynchronizer.BeginWrite;
+		fQueue.Push(fQueue.Pop);
+	Finally
+		fSynchronizer.EndWrite;
+	End;
+End;
+
+Procedure TCustomSynchronizedQueue.Drop;
+Begin
+	Try
+		fSynchronizer.BeginWrite;
+		If Assigned(fQueue.Peek) Then
+			(fQueue.Pop As TCustomActorMessage).Free;
+	Finally
+		fSynchronizer.EndWrite;
+	End;
+End;
+
+Function TCustomSynchronizedQueue.WaitForMessage(Const aTimeout : Integer): Boolean;
+Var
+	lStart : TDateTime;
+	lTimeout : Integer;
+
+	Procedure CalcTimeout;
+	Begin
+		lTimeout := MilliSecondsBetween(Now, lStart);
+	End;
+
+	Function NotTimeout: Boolean;
+	Begin
+		Result := (lTimeout <= aTimeout);
+	End;
+
+Begin
+	lStart := Now;
+	CalcTimeout;
+	While Not(AtLeast(1)) And NotTimeout Do
+	Begin
+		WaitFor(aTimeout Div 10);
+		CalcTimeout;
+	End;
+	Result := AtLeast(1);
+End;
+
+Function TCustomSynchronizedQueue.WaitForTransaction(Const aTransactionID : Int64; Const aTimeout : Integer): Boolean;
+Var
+	lStart : TDateTime;
+	lTimeout : Integer;
+
+	Procedure CalcTimeout;
+	Begin
+		lTimeout := MilliSecondsBetween(Now, lStart);
+	End;
+
+	Function NotTimeout: Boolean;
+	Begin
+		Result := (lTimeout <= aTimeout);
+	End;
+
+	Function NotMatch: Boolean;
+	Begin
+		Result := Top.TransactionID <> aTransactionID;
+	End;
+
+Begin
+	lStart := Now;
+	CalcTimeout;
+	While Not(AtLeast(1)) And NotTimeout Do
+	Begin
+		WaitFor(aTimeout Div 10);
+		CalcTimeout;
+	End;
+	While NotMatch And NotTimeout Do
+	Begin
+		Recycle;
+		CalcTimeout;
+	End;
+	Result := Top.TransactionID <> aTransactionID;
 End;
 
 Constructor TCustomSynchronizedQueue.Create;

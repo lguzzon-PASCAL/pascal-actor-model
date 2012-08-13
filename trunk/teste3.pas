@@ -63,7 +63,6 @@ Begin
 
 	// Start actors and set config
 	StartActorInstance('TScreenWriterActor', 'screen1');
-	StartActorInstance('TUDPReceiver', 'udpreceive1');
 	StartAUDPReceiver('udpreceiver1', 'screen1', ParamStr(1), ParamStr(2), 1500);
 	StartAUDPPairedSender('udpsender1', 'udpreceiver1');
 

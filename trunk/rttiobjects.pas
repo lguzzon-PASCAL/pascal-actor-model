@@ -27,31 +27,8 @@ Uses
 	TypInfo,
 	Variants;
 
-Const
-	tiStreamable : Set Of TTypeKind = [
-		tkInteger,
-		tkChar,
-		tkEnumeration,
-		tkFloat,
-		tkSet,
-		tkSString,
-		tkLString,
-		tkAString,
-		tkWString,
-		tkVariant,
-		tkWChar,
-		tkBool,
-		tkInt64,
-		tkQWord
-	];
-
 Type
 	TArrayOfString = Array Of String;
-
-	TRTTIEvent = Record
-		MsgStr : String[255];
-		Data : Pointer;
-	End;
 
 	ERTTIObject = Class(Exception);
 	TRTTIObject = Class(TObject)
@@ -91,6 +68,31 @@ Function GetClassFromStream(Const aStream : TStream): String;
 Function GetClassFromString(Const aString : String): String;
 
 Implementation
+
+Const
+	tiStreamable : Set Of TTypeKind = [
+		tkInteger,
+		tkChar,
+		tkEnumeration,
+		tkFloat,
+		tkSet,
+		tkSString,
+		tkLString,
+		tkAString,
+		tkWString,
+		tkVariant,
+		tkWChar,
+		tkBool,
+		tkInt64,
+		tkQWord
+	];
+
+Type
+	TRTTIEvent = Record
+		MsgStr : String[255];
+		Data : Pointer;
+	End;
+
 
 // TRTTIObject
 
@@ -150,7 +152,7 @@ Begin
 		lIndex := GetPropertyIndex(aName);
 		If (lIndex >= 0) And (lIndex < PropertyCount) Then
 		Begin
-			Case GetPropertyType(GetPropertyIndex(aName)) Of
+			Case GetPropertyType(lIndex) Of
 				tkInteger     : SetOrdProp(Self, aName, aValue);
 				tkChar        : SetStrProp(Self, aName, aValue);
 				tkEnumeration : SetEnumProp(Self, aName, aValue);

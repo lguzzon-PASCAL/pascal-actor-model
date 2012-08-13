@@ -195,15 +195,26 @@ Type
 Procedure Init;
 Procedure Fini;
 Procedure RegisterMessages;
-	
+
 Var
 	ActorMessageClassFactory : TActorMessageClassFactory;
-	MessageCount : Int64;
-
-ThreadVar
-	LastRequestID : Int64;
 
 Implementation
+
+Var
+	lRequestIDSemaphore : TMultiReadExclusiveWriteSynchronizer;
+	lLastRequestID : Int64;
+
+Function GetNewRequestID: Int64;
+Begin
+	lRequestIDSemaphore.BeginWrite;
+	Try
+		Inc(lLastRequestID);
+		Result := lLastRequestID;
+	Finally
+		lRequestIDSemaphore.EndWrite;
+	End;
+End;
 
 // TCustomActorMessage
 
@@ -212,6 +223,7 @@ Begin
 	Inherited Create;
 	fSource := aSource;
 	fDestination := aDestination;
+	fTransactionID := GetNewRequestID;
 	InitRTTI;
 End;
 
@@ -375,11 +387,13 @@ End;
 
 Procedure Init;
 Begin
+	lRequestIDSemaphore := TMultiReadExclusiveWriteSynchronizer.Create;
 End;
 
 Procedure Fini;
 Begin
 	ActorMessageClassFactory.Free;
+	FreeAndNil(lRequestIDSemaphore);
 End;
 
 Procedure RegisterMessages;
@@ -413,8 +427,7 @@ Begin
 	ActorMessageClassFactory.RegisterMessage(TErrorActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TDebugActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TInfoActorMessage);
-	LastRequestID := -1;
+	lLastRequestID := -1;
 End;
-
 
 End.
