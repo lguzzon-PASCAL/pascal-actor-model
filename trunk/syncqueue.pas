@@ -178,17 +178,25 @@ Var
 		Result := Top.TransactionID <> aTransactionID;
 	End;
 
+	Function SmallerTimeout: Integer;
+	Begin
+		Result := aTimeout Div 100;
+		If Result < 1 Then
+			Result := 1;
+	End;
+
 Begin
 	lStart := Now;
 	CalcTimeout;
 	While Not(AtLeast(1)) And NotTimeout Do
 	Begin
-		WaitFor(aTimeout Div 10);
+		WaitFor(SmallerTimeout);
 		CalcTimeout;
 	End;
 	While NotMatch And NotTimeout Do
 	Begin
 		Recycle;
+		WaitFor(SmallerTimeout);
 		CalcTimeout;
 	End;
 	Result := Top.TransactionID <> aTransactionID;
