@@ -60,15 +60,10 @@ Type
 		fPort : String;
 		fPacketMaxSize : Integer;
 	Public
-		Constructor Create(
-			Const aName : String = '';
-			CreateSuspended : Boolean = False;
-			Const StackSize : SizeUInt = DefaultStackSize;
-			Const aTimeout : Integer = ccDefaultTimeout
-		); Override;
+		Constructor Create(Const aName : String = ccDefaultSwitchBoardName; Const aTimeout : Integer = ccDefaultTimeout); Override;
 		Destructor Destroy; Override;
 		Procedure Idle; Override;
-		Procedure StartListener(Var aMessage); Message 'tsetudptolistenmessage';
+		Procedure StartListener(Var aMessage); Message 'TSetUDPToListenMessage';
 	Published
 		Property IP : String Read fIP Write fIP;
 		Property Port : String Read fPort Write fPort;
@@ -78,7 +73,7 @@ Type
 
 	TUDPSender = Class(TActorThread)
 	Public
-		Procedure SendString(Var aMessage); Message 'tudpmessage';
+		Procedure SendString(Var aMessage); Message 'TUDPMessage';
 	End;
 
 	TPairedUDPSender = Class(TActorThread)
@@ -86,15 +81,10 @@ Type
 		fSocket : TUDPBlockSocket;
 		fSocketRunning : Boolean;
 	Public
-		Constructor Create(
-			Const aName : String = '';
-			CreateSuspended : Boolean = False;
-			Const StackSize : SizeUInt = DefaultStackSize;
-			Const aTimeout : Integer = ccDefaultTimeout
-		); Override;
+		Constructor Create(Const aName : String = ccDefaultSwitchBoardName; Const aTimeout : Integer = ccDefaultTimeout); Override;
 		Destructor Destroy; Override;
-		Procedure SendString(Var aMessage); Message 'tudpmessage';
-		Procedure StartSender(Var aMessage); Message 'tsetudptosendmessage';
+		Procedure SendString(Var aMessage); Message 'TUDPMessage';
+		Procedure StartSender(Var aMessage); Message 'TSetUDPToSendMessage';
 	End;
 
 Procedure Init;
@@ -122,10 +112,9 @@ End;
 
 // TUDPReceiver
 
-Constructor TUDPReceiver.Create(Const aName : String = ''; CreateSuspended : Boolean = False;
-	Const StackSize : SizeUInt = DefaultStackSize; Const aTimeout : Integer = ccDefaultTimeout);
+Constructor TUDPReceiver.Create(Const aName : String = ccDefaultSwitchBoardName; Const aTimeout : Integer = ccDefaultTimeout);
 Begin
-	Inherited Create(aName, CreateSuspended, StackSize, aTimeout);
+	Inherited Create(aName);
 	fSocket := TUDPBlockSocket.Create;
 	fSocketRunning := False;
 	fIP := '127.0.0.1';
@@ -161,6 +150,7 @@ Begin
 				ThrowError(fSocket.LastErrorDesc)
 			Else
 			Begin
+				{ Debug } WriteLn(ActorName, ': ', lBuffer);
 				lMessage := TUDPMessage.Create(ActorName, Target);
 				lMessage.Data := lBuffer;
 				lMessage.SenderIP := lSourceIP;
@@ -209,16 +199,17 @@ End;
 
 // TPairedUDPSender
 
-Constructor TPairedUDPSender.Create(Const aName : String = ''; CreateSuspended : Boolean = False;
-	Const StackSize : SizeUInt = DefaultStackSize; Const aTimeout : Integer = ccDefaultTimeout);
+Constructor TPairedUDPSender.Create(Const aName : String = ccDefaultSwitchBoardName; Const aTimeout : Integer = ccDefaultTimeout);
 Begin
-	Inherited Create(aName, CreateSuspended, StackSize, aTimeout);
+	Inherited Create(aName);
+	// Debug WriteLn('Creating socket.');
 	fSocket := TUDPBlockSocket.Create;
 	fSocketRunning := False;
 End;
 
 Destructor TPairedUDPSender.Destroy;
 Begin
+	// Debug WriteLn('Destroying socket.');
 	FreeAndNil(fSocket);
 	Inherited Destroy;
 End;
@@ -228,6 +219,7 @@ Var
 	lMessage : TUDPMessage;
 Begin
 	lMessage := Message As TUDPMessage;
+	{ Debug } WriteLn(ActorName, ': ', lMessage.Data);
 	If fSocketRunning Then
 	Begin
 		fSocket.Connect(lMessage.ReceiverIP, lMessage.ReceiverPort);
@@ -245,19 +237,22 @@ Var
 	lSocketRequest : TGetConfigInstanceActorMessage;
 	lSocketReply : TGetConfigInstanceReplyActorMessage;
 Begin
+	lMessage := Mailbox.Pop As TSetUDPToSendMessage;
+	lSocketReply := Nil;
 	Try
-		lMessage := SaveMessage As TSetUDPToSendMessage;
+		// Debug WriteLn(ActorName, ': Asking ', lMessage.Data, ' to provide the receiving socket handle.');
 		lSocketRequest := TGetConfigInstanceActorMessage.Create(ActorName, lMessage.Data);
 		lSocketRequest.Data := 'SocketInt';
-		Request(lSocketRequest, Timeout * 2);
-		If Assigned(Message) And (Message Is TGetConfigInstanceReplyActorMessage) Then
+		If Request(lSocketRequest) Then
 		Begin
-			lSocketReply := Message As TGetConfigInstanceReplyActorMessage;
+			lSocketReply := Mailbox.Pop As TGetConfigInstanceReplyActorMessage;
+			// Debug WriteLn(ActorName, ': ', lMessage.Data, ' responded with ', lSocketReply.Value);
 			fSocket.Socket := lSocketReply.Value;
 			fSocket.GetSins;
 			fSocketRunning := True;
 		End;
 	Finally
+		FreeAndNil(lSocketReply);
 		FreeAndNil(lMessage);
 	End;
 End;

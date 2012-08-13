@@ -35,13 +35,13 @@ Type
 	Private
 		fLogger : TEventLog;
 	Public
-		Constructor Create(Const aName : String = ccDefaultLogger; CreateSuspended : Boolean = False; Const StackSize : SizeUInt = DefaultStackSize; Const aTimeout : Integer = ccDefaultTimeout); Override;
+		Constructor Create(Const aName : String = ccDefaultSwitchBoardName; Const aTimeout : Integer = ccDefaultTimeout); Override;
 		Destructor Destroy; Override;
-		Procedure LogMessage(Var aMessage); Message 'tlogactormessage';
-		Procedure WarningMessage(Var aMessage); Message 'twarningactormessage';
-		Procedure ErrorMessage(Var aMessage); Message 'terroractormessage';
-		Procedure DebugMessage(Var aMessage); Message 'tdebugactormessage';
-		Procedure InfoMessage(Var aMessage); Message 'tinfoactormessage';
+		Procedure LogMessage(Var aMessage); Message 'TLogActorMessage';
+		Procedure WarningMessage(Var aMessage); Message 'TWarningActorMessage';
+		Procedure ErrorMessage(Var aMessage); Message 'TErrorActorMessage';
+		Procedure DebugMessage(Var aMessage); Message 'TDebugActorMessage';
+		Procedure InfoMessage(Var aMessage); Message 'TInfoActorMessage';
 	End;
 
 Procedure Init;
@@ -58,9 +58,9 @@ Implementation
 
 // TLoggerActor
 
-Constructor TLoggerActor.Create(Const aName : String = ccDefaultLogger; CreateSuspended : Boolean = False; Const StackSize : SizeUInt = DefaultStackSize; Const aTimeout : Integer = ccDefaultTimeout);
+Constructor TLoggerActor.Create(Const aName : String = ccDefaultSwitchBoardName; Const aTimeout : Integer = ccDefaultTimeout);
 Begin
-	Inherited Create(aName, CreateSuspended, StackSize, aTimeout);
+	Inherited Create(aName);
 	fLogger := TEventLog.Create(Nil);
 End;
 

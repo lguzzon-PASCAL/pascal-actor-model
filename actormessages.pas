@@ -221,10 +221,10 @@ End;
 Constructor TCustomActorMessage.Create(Const aSource, aDestination : String);
 Begin
 	Inherited Create;
+	InitRTTI;
 	fSource := aSource;
 	fDestination := aDestination;
 	fTransactionID := GetNewRequestID;
-	InitRTTI;
 End;
 
 Destructor TCustomActorMessage.Destroy;
@@ -398,6 +398,7 @@ End;
 
 Procedure RegisterMessages;
 Begin
+	// Debug WriteLn('Registering all message classes...');
 	ActorMessageClassFactory := TActorMessageClassFactory.Create;
 	ActorMessageClassFactory.RegisterMessage(TCustomActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TCustomEncapsulatedActorMessage);
@@ -427,6 +428,7 @@ Begin
 	ActorMessageClassFactory.RegisterMessage(TErrorActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TDebugActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TInfoActorMessage);
+	// Debug WriteLn('Done.');
 	lLastRequestID := -1;
 End;
 

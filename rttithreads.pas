@@ -107,7 +107,7 @@ Var
 Begin
 	lEvent.MsgStr := aEventName;
 	lEvent.Data := Pointer(aObject);
-	// Debug  WriteLn('Assigned : ', Assigned(Self));
+	// Debug WriteLn('Assigned : ', Assigned(Self));
 	DispatchStr(lEvent);
 End;
 

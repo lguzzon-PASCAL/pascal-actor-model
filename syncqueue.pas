@@ -115,7 +115,8 @@ Procedure TCustomSynchronizedQueue.Recycle;
 Begin
 	Try
 		fSynchronizer.BeginWrite;
-		fQueue.Push(fQueue.Pop);
+		If fQueue.AtLeast(1) Then
+			fQueue.Push(fQueue.Pop);
 	Finally
 		fSynchronizer.EndWrite;
 	End;
@@ -147,12 +148,19 @@ Var
 		Result := (lTimeout <= aTimeout);
 	End;
 
+	Function SmallerTimeout: Integer;
+	Begin
+		Result := aTimeout Div 10;
+		If Result < 1 Then
+			Result := 1;
+	End;
+
 Begin
 	lStart := Now;
 	CalcTimeout;
 	While Not(AtLeast(1)) And NotTimeout Do
 	Begin
-		WaitFor(aTimeout Div 10);
+		WaitFor(SmallerTimeout);
 		CalcTimeout;
 	End;
 	Result := AtLeast(1);
@@ -170,36 +178,41 @@ Var
 
 	Function NotTimeout: Boolean;
 	Begin
-		Result := (lTimeout <= aTimeout);
+		// Debug  WriteLn('lTimeout : ', lTimeout, ' aTimeout : ', aTimeout);
+		Result := lTimeout <= aTimeout;
 	End;
 
 	Function NotMatch: Boolean;
 	Begin
-		Result := Top.TransactionID <> aTransactionID;
+		If AtLeast(1) Then
+			Result := Top.TransactionID <> aTransactionID
+		Else
+			Result := True;
 	End;
 
 	Function SmallerTimeout: Integer;
 	Begin
-		Result := aTimeout Div 100;
+		Result := aTimeout Div 10;
 		If Result < 1 Then
 			Result := 1;
+		// Debug  WriteLn('Waiting for ', Result, ' milliseconds...');
 	End;
 
 Begin
+	// Debug WriteLn('TCustomSynchronizedQueue : Waiting for transaction');
 	lStart := Now;
 	CalcTimeout;
-	While Not(AtLeast(1)) And NotTimeout Do
-	Begin
-		WaitFor(SmallerTimeout);
-		CalcTimeout;
-	End;
 	While NotMatch And NotTimeout Do
 	Begin
+		// Debug WriteLn('TCustomSynchronizedQueue : NotMatch ', NotMatch, ' NotTimeout ', NotTimeout);
+		If AtLeast(1) Then
+			// Debug WriteLn('TCustomSynchronizedQueue : ', Top.Source, '->', Top.Destination, ': ', Top.ClassName, ':', Top.TransactionID);
 		Recycle;
 		WaitFor(SmallerTimeout);
 		CalcTimeout;
 	End;
-	Result := Top.TransactionID <> aTransactionID;
+	Result := Not NotMatch;
+	// Debug WriteLn('TCustomSynchronizedQueue : Found ? ', Result);
 End;
 
 Constructor TCustomSynchronizedQueue.Create;
