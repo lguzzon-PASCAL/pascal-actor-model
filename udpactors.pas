@@ -81,7 +81,7 @@ Type
 		fSocket : TUDPBlockSocket;
 		fSocketRunning : Boolean;
 	Public
-		Constructor Create(Const aName : String = ccDefaultSwitchBoardName; Const aTimeout : Integer = ccDefaultTimeout); Override;
+		Constructor Create(Const aName : String = ''; Const aTimeout : Integer = ccDefaultTimeout); Override;
 		Destructor Destroy; Override;
 		Procedure SendString(Var aMessage); Message 'TUDPMessage';
 		Procedure StartSender(Var aMessage); Message 'TSetUDPToSendMessage';
@@ -112,9 +112,9 @@ End;
 
 // TUDPReceiver
 
-Constructor TUDPReceiver.Create(Const aName : String = ccDefaultSwitchBoardName; Const aTimeout : Integer = ccDefaultTimeout);
+Constructor TUDPReceiver.Create(Const aName : String = ''; Const aTimeout : Integer = ccDefaultTimeout);
 Begin
-	Inherited Create(aName);
+	Inherited Create(aName, aTimeout);
 	fSocket := TUDPBlockSocket.Create;
 	fSocketRunning := False;
 	fIP := '127.0.0.1';

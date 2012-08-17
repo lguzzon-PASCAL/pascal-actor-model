@@ -44,7 +44,7 @@ Type
 		fTargets : TStringList;
 	Public
 		Property Targets : TStringList Read fTargets;
-		Constructor Create(Const aName : String = ccDefaultSwitchBoardName; Const aTimeout : Integer = ccDefaultTimeout); Override;
+		Constructor Create(Const aName : String = ''; Const aTimeout : Integer = ccDefaultTimeout); Override;
 		Destructor Destroy; Override;
 		Procedure AddTarget(Var aMessage); Message 'TAddTargetActorMessage';
 		Procedure DelTarget(var aMessage); Message 'TDeleteTargetActorMessage';
@@ -89,9 +89,9 @@ End;
 
 // TWithTargetListActor
 
-Constructor TWithTargetListActor.Create(Const aName : String = ccDefaultSwitchBoardName; Const aTimeout : Integer = ccDefaultTimeout);
+Constructor TWithTargetListActor.Create(Const aName : String = ''; Const aTimeout : Integer = ccDefaultTimeout);
 Begin
-	Inherited Create(aName);
+	Inherited Create(aName, aTimeout);
 	fTargets := TStringList.Create;
 End;
 
