@@ -35,7 +35,7 @@ Type
 	Private
 		fLogger : TEventLog;
 	Public
-		Constructor Create(Const aName : String = ccDefaultSwitchBoardName; Const aTimeout : Integer = ccDefaultTimeout); Override;
+		Constructor Create(Const aName : String = ''; Const aTimeout : Integer = ccDefaultTimeout); Override;
 		Destructor Destroy; Override;
 		Procedure LogMessage(Var aMessage); Message 'TLogActorMessage';
 		Procedure WarningMessage(Var aMessage); Message 'TWarningActorMessage';
@@ -58,9 +58,9 @@ Implementation
 
 // TLoggerActor
 
-Constructor TLoggerActor.Create(Const aName : String = ccDefaultSwitchBoardName; Const aTimeout : Integer = ccDefaultTimeout);
+Constructor TLoggerActor.Create(Const aName : String = ''; Const aTimeout : Integer = ccDefaultTimeout);
 Begin
-	Inherited Create(aName);
+	Inherited Create(aName, aTimeout);
 	fLogger := TEventLog.Create(Nil);
 End;
 
