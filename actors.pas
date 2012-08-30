@@ -38,6 +38,7 @@ Uses
 Const
 	ccDefaultMainThreadName = 'main';
 	ccDefaultSwitchBoardName = 'switchboard';
+	ccDefaultRouterName = 'router';
 	ccDefaultLogger = 'logger';
 	ccDefaultTimeout = 10;
 
@@ -84,19 +85,22 @@ Type
 		fClasses : TFPHashList;
 		fInstances : TFPHashObjectList;
 	Public
-		Constructor Create(Const aName : String = ccDefaultSwitchBoardName; Const aTimeout : Integer = ccDefaultTimeout); Override;
-		Destructor Destroy; Override;
-		Procedure Execute; Override;
-		Procedure Route;
-		Procedure AskAllActorsToQuit;
-		Procedure WaitForActorsToQuit(Const aTimeout : Integer);
-		Procedure KillAllActors;
 		// Message handlers
 		Procedure RegisterClass(Var aMessage); Message 'TRegisterClassActorMessage';
 		Procedure UnregisterClass(Var aMessage); Message 'TUnregisterClassActorMessage';
 		Procedure CreateInstance(Var aMessage); Message 'TCreateInstanceActorMessage';
 		Procedure CreateInstanceAndConfig(Var aMessage); Message 'TCreateInstanceAndConfigActorMessage';
 		Procedure RemoveInstance(Var aMessage); Message 'TRemoveActorMessage';
+		Procedure ForeignMessage(Var aMessage); Message 'TForeignActorMessage';
+		// Switchboard misc
+		Constructor Create(Const aName : String = ccDefaultSwitchBoardName; Const aTimeout : Integer = ccDefaultTimeout); Override;
+		Destructor Destroy; Override;
+		Procedure Execute; Override;
+		Procedure Route;
+		Procedure SendToDefaultRouter;
+		Procedure AskAllActorsToQuit;
+		Procedure WaitForActorsToQuit(Const aTimeout : Integer);
+		Procedure KillAllActors;
 	End;
 
 Var
@@ -153,7 +157,7 @@ Var
 	lError : TErrorActorMessage;
 Begin
 	Try
-		lMessage := fMailbox.Top As TConfigInstanceActorMessage;
+		lMessage := Message As TConfigInstanceActorMessage;
 		SetPropertyValueByName(lMessage.Name, lMessage.Value);
 	Except
 		On E: Exception Do 
@@ -172,7 +176,7 @@ Var
 	lError : TErrorActorMessage;
 Begin
 	Try
-		lRequestMessage := fMailbox.Top As TGetConfigInstanceActorMessage;
+		lRequestMessage := Message As TGetConfigInstanceActorMessage;
 		// Debug WriteLn(ActorName, ': ', lRequestMessage.Source, ' is asking about ', lRequestMessage.Data);
 		lReplyMessage := TGetConfigInstanceReplyActorMessage.Create(ActorName, lRequestMessage.Source);
 		lReplyMessage.TransactionID := lRequestMessage.TransactionID;
@@ -275,7 +279,7 @@ Procedure TSwitchBoardActor.RegisterClass(Var aMessage);
 Var
 	lMessage : TRegisterClassActorMessage;
 Begin
-	lMessage := Mailbox.Top As TRegisterClassActorMessage;
+	lMessage := Message As TRegisterClassActorMessage;
 	fClasses.Add(lMessage.ClassReference.ClassName, Pointer(lMessage.ClassReference));
 End;
 
@@ -284,7 +288,7 @@ Var
 	lMessage : TUnregisterClassActorMessage;
 	lIndex : Integer;
 Begin
-	lMessage := Mailbox.Top As TUnregisterClassActorMessage;
+	lMessage := Message As TUnregisterClassActorMessage;
 	lIndex := fClasses.FindIndexOf(lMessage.Data);
 	If lIndex >= 0 Then
 		fClasses.Delete(lIndex);
@@ -296,7 +300,7 @@ Var
 	lActor : TActorThread;
 	lIndex : Integer;
 Begin
-	lMessage := Mailbox.Top As TCreateInstanceActorMessage;
+	lMessage := Message As TCreateInstanceActorMessage;
 	lIndex := fClasses.FindIndexOf(lMessage.NameOfClass);
 	If lIndex >= 0 Then
 	Begin
@@ -313,7 +317,7 @@ Var
 	lIndex : Integer;
 	lCtrl : Integer;
 Begin
-	lMessage := Mailbox.Top As TCreateInstanceAndConfigActorMessage;
+	lMessage := Message As TCreateInstanceAndConfigActorMessage;
 	lIndex := fClasses.FindIndexOf(lMessage.NameOfClass);
 	If lIndex >= 0 Then
 	Begin
@@ -330,7 +334,7 @@ Var
 	lMessage : TRemoveActorMessage;
 	lIndex : Integer;
 Begin
-	lMessage := Mailbox.Top As TRemoveActorMessage;
+	lMessage := Message As TRemoveActorMessage;
 	lIndex := fInstances.FindIndexOf(lMessage.Source);
 	If lIndex >= 0 Then
 	Begin
@@ -338,6 +342,24 @@ Begin
 		(fInstances.Items[lIndex] As TActorThread).Terminate;
 		fInstances.Delete(lIndex);
 	End;
+End;
+
+Procedure TSwitchBoardActor.ForeignMessage(Var aMessage);
+Var
+	lMessage : TForeignActorMessage;
+	lEncapsulated : TCustomActorMessage;
+	lTarget : TObject;
+Begin
+	lMessage := Message As TForeignActorMessage;
+	lEncapsulated := lMessage.Encapsulated;
+	lTarget := fInstances.Find(lEncapsulated.Destination);
+	If Assigned(lTarget) Then 
+	Begin
+		(lTarget As TActorThread).MailBox.Push(lEncapsulated);
+		lMessage.Encapsulated := Nil;
+	End
+	Else
+		fMailbox.Drop;
 End;
 
 Constructor TSwitchBoardActor.Create(Const aName : String = ccDefaultSwitchBoardName; Const aTimeout : Integer = ccDefaultTimeout);
@@ -391,6 +413,18 @@ Begin
 	lTarget := fInstances.Find(Mailbox.Top.Destination);
 	If Assigned(lTarget) Then 
 		(lTarget As TActorThread).MailBox.Push(fMailbox.Pop)
+	Else
+		SendToDefaultRouter;
+End;
+
+Procedure TSwitchBoardActor.SendToDefaultRouter;
+Var
+	lTarget : TObject;
+Begin
+	// Debug WriteLn(ActorName, ': From ', Mailbox.Top.Source, ' to ', Mailbox.Top.Destination, ' transaction id ', Mailbox.Top.TransactionID, ' class ', Mailbox.Top.ClassName);
+	lTarget := fInstances.Find(ccDefaultRouterName);
+	If Assigned(lTarget) Then 
+		(lTarget As TActorThread).MailBox.Push(Mailbox.Pop)
 	Else
 		fMailbox.Drop;
 End;
