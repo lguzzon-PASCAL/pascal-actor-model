@@ -112,7 +112,7 @@ End;
 
 // TUDPReceiver
 
-Constructor TUDPReceiver.Create(Const aName : String = ''; Const aTimeout : Integer = ccDefaultTimeout);
+Constructor TUDPReceiver.Create(Const aName : String = ccDefaultSwitchBoardName; Const aTimeout : Integer = ccDefaultTimeout);
 Begin
 	Inherited Create(aName, aTimeout);
 	fSocket := TUDPBlockSocket.Create;
@@ -199,7 +199,7 @@ End;
 
 // TPairedUDPSender
 
-Constructor TPairedUDPSender.Create(Const aName : String = ccDefaultSwitchBoardName; Const aTimeout : Integer = ccDefaultTimeout);
+Constructor TPairedUDPSender.Create(Const aName : String = ''; Const aTimeout : Integer = ccDefaultTimeout);
 Begin
 	Inherited Create(aName);
 	// Debug WriteLn('Creating socket.');
@@ -280,7 +280,7 @@ Var
 	lMessage : TSetUDPToListenMessage;
 Begin
 	lMessage := TSetUDPToListenMessage.Create(MainThreadName, aInstanceName);
-	Switchboard.Mailbox.Push(lMessage);
+	SendMessage(lMessage);
 End;
 
 Procedure SetUDPToSend(Const aInstanceName, aReceiverName : String);
@@ -289,7 +289,7 @@ Var
 Begin
 	lMessage := TSetUDPToSendMessage.Create(MainThreadName, aInstanceName);
 	lMessage.Data := aReceiverName;
-	Switchboard.Mailbox.Push(lMessage);
+	SendMessage(lMessage);
 End;
 
 Procedure StartAUDPReceiver(Const aInstanceName, aTarget, aIP, aPort : String; Const aMaxPacketSize : Integer);

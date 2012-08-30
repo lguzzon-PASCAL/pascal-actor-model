@@ -169,7 +169,7 @@ Type
 		Property Messages[aIndex : Integer]: TCustomActorMessage Read GetMessage;
 		Property MessageCount: Integer Read GetCount;
 	End;
-	
+
 	// Actor class registration/unregistration related messages
 	TRegisterClassActorMessage = Class(TCustomClassReferenceActorMessage);
 	TUnregisterClassActorMessage = Class(TCustomStringActorMessage);
