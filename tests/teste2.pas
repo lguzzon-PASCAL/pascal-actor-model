@@ -102,19 +102,15 @@ Var
 	lPingMessage : TPingMessage;
 	lPongMessage : TPongMessage;
 Begin
-	lPingMessage := Mailbox.Pop As TPingMessage;
-	Try
-		WriteLn(ActorName, ' received ping...(', lPingMessage.TransactionID, ')');
-		lPongMessage := TPongMessage.Create(ActorName, lPingMessage.Source);
-		lPongMessage.TransactionID := lPingMessage.TransactionID;
-		lPongMessage.Time := (lPingMessage As TPingMessage).Time;
-		WriteLn(ActorName, ' sending pong...');
-		Sleep(100);
-		Send(lPongMessage);
-		WriteLn(ActorName, ' Pong sent.');
-	Finally
-		FreeAndNil(lPingMessage);
-	End;
+	lPingMessage := Message As TPingMessage;
+	WriteLn(ActorName, ' received ping...(', lPingMessage.TransactionID, ')');
+	lPongMessage := TPongMessage.Create(ActorName, lPingMessage.Source);
+	lPongMessage.TransactionID := lPingMessage.TransactionID;
+	lPongMessage.Time := (lPingMessage As TPingMessage).Time;
+	WriteLn(ActorName, ' sending pong...');
+	Sleep(100);
+	Send(lPongMessage);
+	WriteLn(ActorName, ' Pong sent.');
 End;
 
 Var

@@ -55,11 +55,14 @@ Type
 		fRunning : Boolean;
 		fTimeout : Integer;
 		Function GetTopMessage: TCustomActorMessage;
+		fWorking : Boolean;
 	Public
 		// Message handlers
 		Procedure Quit(Var aMessage); Message 'TTerminateActorMessage';
 		Procedure ConfigInstance(Var aMessage); Message 'TConfigInstanceActorMessage';
 		Procedure GetConfigOfInstance(Var aMessage); Message 'TGetConfigInstanceActorMessage';
+		Procedure StartWorkActorMessage(Var aMessage); Message 'TStartWorkActorMessage';
+		Procedure StopWorkActorMessage(Var aMessage); Message 'TStopWorkActorMessage';
 		Procedure DefaultHandlerStr(Var aMessage); Override;
 		// Misc
 		Constructor Create(Const aName : String = ''; Const aTimeout : Integer = ccDefaultTimeout); Virtual;
@@ -70,12 +73,15 @@ Type
 		Function Request(Const aMessage : TCustomActorMessage): Boolean;
 		Procedure Reply(aMessage : TCustomActorMessage);
 		Procedure DispatchTopMessage;
+		Procedure OnStartWork; Virtual;
+		Procedure OnStopWork; Virtual;
 		// Properties
 		Property ActorName : String Read fActorName;
 		Property Running : Boolean Read fRunning Write fRunning;
 		Property Timeout : Integer Read fTimeout Write fTimeout;
 		Property Mailbox : TCustomSynchronizedQueue Read fMailbox;
 		Property Message : TCustomActorMessage Read GetTopMessage;
+		Property Working : Boolean Read fBoolean Write fBoolean;
 	End;
 
 	// Switchboard actor : Routes traffic between actors
@@ -117,9 +123,12 @@ Function ReceiveMessage(Const aTimeout : Integer = ccDefaultTimeout): TCustomAct
 Function Request(Const aMessage : TCustomActorMessage; Const aTimeout : Integer): Boolean;
 Procedure Reply(Const aMessage : TCustomActorMessage);
 
+Procedure StartWork(Const aInstanceName : String);
+Procedure StopWork(Const aInstanceName : String);
 Procedure RegisterActorClass(Const aClass : TClass);
 Procedure StartActorInstance(Const aClassName, aInstanceName : String);
 Procedure ConfigActor(Const aInstanceName, aVariable : String; Const aValue : Variant);
+Procedure TerminateActor(Const aInstanceName : String);
 
 Implementation
 
@@ -192,6 +201,18 @@ Begin
 			Send(lError);
 		End;
 	End;
+End;
+
+Procedure TActorThread.StartWorkActorMessage(Var aMessage);
+Begin
+	OnStartWork;
+	fWorking := True;
+End;
+
+Procedure TActorThread.StopWorkActorMessage(Var aMessage);
+Begin
+	fWorking := False;
+	OnStopWork;
 End;
 
 Procedure TActorThread.DefaultHandlerStr(Var aMessage);
@@ -271,6 +292,16 @@ Begin
 	Finally
 		fMailbox.Drop;
 	End;
+End;
+
+Procedure TActorThread.OnStartWork;
+Begin
+	// Dummy to avoid constructing classes with undefined virual methods
+End;
+
+Procedure TActorThread.OnStopWork;
+Begin
+	// Dummy to avoid constructing classes with undefined virual methods
 End;
 
 // TSwitchBoardActor
@@ -531,6 +562,22 @@ Procedure RegisterMessages;
 Begin
 End;
 
+Procedure StartWork(Const aInstanceName : String);
+Var
+	lMessage : TStartWorkActorMessage;
+Begin
+	lMessage := TStartWorkActorMessage.Create(MainThreadName, aInstanceName);
+	Switchboard.Mailbox.Push(lMessage);
+End;
+
+Procedure StopWork(Const aInstanceName : String);
+Var
+	lMessage : TStopWorkActorMessage;
+Begin
+	lMessage := TStopWorkActorMessage.Create(MainThreadName, aInstanceName);
+	Switchboard.Mailbox.Push(lMessage);
+End;
+
 Procedure SendMessage(Const aMessage : TCustomActorMessage);
 Begin
 	Switchboard.Mailbox.Push(aMessage);
@@ -589,6 +636,14 @@ Begin
 	lConfig.Name := aVariable;
 	lConfig.Value := aValue;
 	Switchboard.Mailbox.Push(lConfig);
+End;
+
+Procedure TerminateActor(Const aInstanceName : String);
+Var
+	lTerminate : TTerminateActorMessage;
+Begin
+	lTerminate := TTerminateActorMessage.Create(MainThreadName, aInstanceName);
+	Switchboard.Mailbox.Push(lTerminate);
 End;
 
 End.

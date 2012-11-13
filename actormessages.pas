@@ -132,6 +132,11 @@ Type
 		Property Name : String Read fName Write fName;
 	End;
 
+	// Start/Stop working
+
+	TStartWorkActorMessage = Class(TCustomActorMessage);
+	TStopWorkActorMessage = Class(TCustomActorMessage);
+
 	// Producer/router target related messages
 
 	TSetTargetActorMessage = Class(TCustomStringActorMessage);
@@ -410,6 +415,8 @@ Begin
 	ActorMessageClassFactory.RegisterMessage(TCustomClassReferenceActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TCustomNamedObjectReferenceActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TCustomNamedClassReferenceActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TStartWorkActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TStopWorkActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TSetTargetActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TAddTargetActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TDeleteTargetActorMessage);

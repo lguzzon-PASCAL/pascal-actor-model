@@ -47,15 +47,11 @@ Type
 		Property ReceiverPort : String Read fReceiverPort Write fReceiverPort;
 	End;
 
-	TSetUDPToListenMessage = Class(TCustomActorMessage);
-	TSetUDPToSendMessage = Class(TCustomStringActorMessage);
-
 	TUDPReceiver = Class(TWithTargetActor)
 	Private
 		fSocketInt : Integer;
 		fSocketTimeout : Integer;
 		fSocket : TUDPBlockSocket;
-		fSocketRunning : Boolean;
 		fIP,
 		fPort : String;
 		fPacketMaxSize : Integer;
@@ -63,7 +59,8 @@ Type
 		Constructor Create(Const aName : String = ccDefaultSwitchBoardName; Const aTimeout : Integer = ccDefaultTimeout); Override;
 		Destructor Destroy; Override;
 		Procedure Idle; Override;
-		Procedure StartListener(Var aMessage); Message 'TSetUDPToListenMessage';
+		Procedure OnStartWork; Override;
+		Procedure OnStopWork; Override;
 	Published
 		Property IP : String Read fIP Write fIP;
 		Property Port : String Read fPort Write fPort;
@@ -79,22 +76,23 @@ Type
 	TPairedUDPSender = Class(TActorThread)
 	Private
 		fSocket : TUDPBlockSocket;
-		fSocketRunning : Boolean;
+		fPairWith : String;
 	Public
 		Constructor Create(Const aName : String = ''; Const aTimeout : Integer = ccDefaultTimeout); Override;
 		Destructor Destroy; Override;
+		Procedure OnStartWork; Override;
+		Procedure OnStopWork; Override;
 		Procedure SendString(Var aMessage); Message 'TUDPMessage';
-		Procedure StartSender(Var aMessage); Message 'TSetUDPToSendMessage';
+	Published
+		Property PairWith : String Read fPairWith Write fPairWith;
 	End;
 
 Procedure Init;
 Procedure Fini;
 Procedure RegisterMessages;
 
-Procedure SetUDPToListen(Const aInstanceName : String);
-Procedure SetUDPToSend(Const aInstanceName, aReceiverName : String);
-
-Procedure StartAUDPReceiver(Const aInstanceName, aTarget, aIP, aPort : String; Const aMaxPacketSize : Integer);
+Procedure StartAUDPReceiver(Const aInstanceName, aTarget, aIP, aPort : String; Const aMaxPacketSize : Integer = 1000);
+Procedure StartAUDPSender(Const aInstanceName : String);
 Procedure StartAUDPPairedSender(Const aInstanceName, aPairedReceiver : String);
 
 Implementation
@@ -117,9 +115,9 @@ Begin
 	Inherited Create(aName, aTimeout);
 	fSocket := TUDPBlockSocket.Create;
 	fSocketRunning := False;
-	fIP := '127.0.0.1';
-	fPort := '1024';
-	fPacketMaxSize := 4096;
+	fIP := '0.0.0.0';
+	fPort := '0';
+	fPacketMaxSize := 1000;
 	fSocketInt := -1;
 End;
 
@@ -162,15 +160,22 @@ Begin
 		End;
 End;
 
-Procedure TUDPReceiver.StartListener(Var aMessage);
+Procedure TUDPReceiver.OnStartWork;
 Begin
-	fSocketRunning := True;
 	fSocketTimeout := Timeout;
 	Timeout := 0;
 	fSocket.Bind(fIP, fPort);
 	If fSocket.LastError <> 0 Then
 		ThrowError(fSocket.LastErrorDesc);
 	fSocketInt := fSocket.Socket;
+End;
+
+Procedure TUDPReceiver.OnStopWork;
+Begin
+	Timeout := fSocketTimeout;
+	fSocketTimeout := 0;
+	FreeAndNil(fSocket);
+	fSocket := TUDPBlockSocket.Create;
 End;
 
 // TUDPSender
@@ -204,7 +209,7 @@ Begin
 	Inherited Create(aName);
 	// Debug WriteLn('Creating socket.');
 	fSocket := TUDPBlockSocket.Create;
-	fSocketRunning := False;
+	fPairWith := '';
 End;
 
 Destructor TPairedUDPSender.Destroy;
@@ -231,30 +236,37 @@ Begin
 	End;
 End;
 
-Procedure TPairedUDPSender.StartSender(Var aMessage);
+Procedure TPairedUDPSender.OnStartWork;
 Var
 	lMessage : TSetUDPToSendMessage;
 	lSocketRequest : TGetConfigInstanceActorMessage;
 	lSocketReply : TGetConfigInstanceReplyActorMessage;
 Begin
-	lMessage := Mailbox.Pop As TSetUDPToSendMessage;
+	lMessage := Message As TSetUDPToSendMessage;
 	lSocketReply := Nil;
 	Try
 		// Debug WriteLn(ActorName, ': Asking ', lMessage.Data, ' to provide the receiving socket handle.');
-		lSocketRequest := TGetConfigInstanceActorMessage.Create(ActorName, lMessage.Data);
+		lSocketRequest := TGetConfigInstanceActorMessage.Create(ActorName, fPairWith);
 		lSocketRequest.Data := 'SocketInt';
 		If Request(lSocketRequest) Then
 		Begin
-			lSocketReply := Mailbox.Pop As TGetConfigInstanceReplyActorMessage;
+			lSocketReply := Message As TGetConfigInstanceReplyActorMessage;
 			// Debug WriteLn(ActorName, ': ', lMessage.Data, ' responded with ', lSocketReply.Value);
 			fSocket.Socket := lSocketReply.Value;
 			fSocket.GetSins;
-			fSocketRunning := True;
-		End;
+		End
+		Else
+			ThrowError('Cant find paired receiver or timedout in operation.');
 	Finally
 		FreeAndNil(lSocketReply);
 		FreeAndNil(lMessage);
 	End;
+End;
+
+Procedure TPairedUDPSender.OnStopWork;
+Begin
+	FreeAndNil(fSocket);
+	fSocket := TUDPBlockSocket.Create;
 End;
 
 Procedure Init;
@@ -271,41 +283,28 @@ End;
 Procedure RegisterMessages;
 Begin
 	ActorMessageClassFactory.RegisterMessage(TUDPMessage);
-	ActorMessageClassFactory.RegisterMessage(TSetUDPToListenMessage);
-	ActorMessageClassFactory.RegisterMessage(TSetUDPToSendMessage);
 End;
 
-Procedure SetUDPToListen(Const aInstanceName : String);
-Var
-	lMessage : TSetUDPToListenMessage;
-Begin
-	lMessage := TSetUDPToListenMessage.Create(MainThreadName, aInstanceName);
-	SendMessage(lMessage);
-End;
-
-Procedure SetUDPToSend(Const aInstanceName, aReceiverName : String);
-Var
-	lMessage : TSetUDPToSendMessage;
-Begin
-	lMessage := TSetUDPToSendMessage.Create(MainThreadName, aInstanceName);
-	lMessage.Data := aReceiverName;
-	SendMessage(lMessage);
-End;
-
-Procedure StartAUDPReceiver(Const aInstanceName, aTarget, aIP, aPort : String; Const aMaxPacketSize : Integer);
+Procedure StartAUDPReceiver(Const aInstanceName, aTarget, aIP, aPort : String; Const aMaxPacketSize : Integer = 1000);
 Begin
 	StartActorInstance('TUDPReceiver', aInstanceName);
 	SetTargetOfActor(aInstanceName, aTarget);
 	ConfigActor(aInstanceName, 'ip', aIP);
 	ConfigActor(aInstanceName, 'port', aPort);
 	ConfigActor(aInstanceName, 'packetmaxsize', aMaxPacketSize);
-	SetUDPToListen(aInstanceName);
+	StartWork(aInstanceName);
+End;
+
+Procedure StartAUDPSender(Const aInstanceName : String);
+Begin
+	StartActorInstance('TUDPSender');
 End;
 
 Procedure StartAUDPPairedSender(Const aInstanceName, aPairedReceiver : String);
 Begin
 	StartActorInstance('TPairedUDPSender', aInstanceName);
-	SetUDPToSend(aInstanceName, aPairedReceiver);
+	ConfigActor(aInstanceName, 'pairwith', aPairedReceiver);
+	StartWork(aInstanceName);
 End;
 
 End.
