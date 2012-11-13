@@ -37,12 +37,8 @@ Procedure TScreenWriterActor.ScreenWrite(Var aMessage);
 Var
 	lMessage : TScreenMessage;
 Begin
-	lMessage := Mailbox.Pop As TScreenMessage;
-	Try
-		WriteLn(ActorName, ': ', lMessage.Data);
-	Finally
-		FreeAndNil(lMessage);
-	End;
+	lMessage := Message As TScreenMessage;
+	WriteLn(ActorName, ': ', lMessage.Data);
 End;
 
 Var

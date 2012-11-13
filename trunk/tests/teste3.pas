@@ -36,12 +36,8 @@ Procedure TScreenWriterActor.ScreenWrite(Var aMessage);
 Var
 	lMessage : TUDPMessage;
 Begin
-	lMessage := Mailbox.Pop As TUDPMessage;
-	Try
-		WriteLn(lMessage.SenderIP, '>', lMessage.Data);
-	Finally
-		FreeAndNil(lMessage);
-	End;
+	lMessage := Message As TUDPMessage;
+	WriteLn(lMessage.SenderIP, '>', lMessage.Data);
 End;
 
 Var
