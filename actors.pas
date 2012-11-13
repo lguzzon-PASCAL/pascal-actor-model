@@ -38,7 +38,6 @@ Uses
 Const
 	ccDefaultMainThreadName = 'main';
 	ccDefaultSwitchBoardName = 'switchboard';
-	ccDefaultRouterName = 'router';
 	ccDefaultLogger = 'logger';
 	ccDefaultTimeout = 10;
 
@@ -103,7 +102,6 @@ Type
 		Destructor Destroy; Override;
 		Procedure Execute; Override;
 		Procedure Route;
-		Procedure SendToDefaultRouter;
 		Procedure AskAllActorsToQuit;
 		Procedure WaitForActorsToQuit(Const aTimeout : Integer);
 		Procedure KillAllActors;
@@ -444,18 +442,6 @@ Begin
 	lTarget := fInstances.Find(Mailbox.Top.Destination);
 	If Assigned(lTarget) Then 
 		(lTarget As TActorThread).MailBox.Push(fMailbox.Pop)
-	Else
-		SendToDefaultRouter;
-End;
-
-Procedure TSwitchBoardActor.SendToDefaultRouter;
-Var
-	lTarget : TObject;
-Begin
-	// Debug WriteLn(ActorName, ': From ', Mailbox.Top.Source, ' to ', Mailbox.Top.Destination, ' transaction id ', Mailbox.Top.TransactionID, ' class ', Mailbox.Top.ClassName);
-	lTarget := fInstances.Find(ccDefaultRouterName);
-	If Assigned(lTarget) Then 
-		(lTarget As TActorThread).MailBox.Push(Mailbox.Pop)
 	Else
 		fMailbox.Drop;
 End;
