@@ -284,9 +284,12 @@ End;
 Procedure TActorThread.DispatchTopMessage;
 Begin
 	Try
-		// Debug WriteLn(ActorName, ' is handling message ', Message.ClassName);
-		// Debug WriteLn(ActorName, ' mailbox count ', fMailbox.Count);
-		DispatchEvent(fMailbox.Top.ClassName, Nil);
+		If Assigned(Message) Then
+		Begin
+			// Debug WriteLn(ActorName, ' is handling message ', Message.ClassName);
+			// Debug WriteLn(ActorName, ' mailbox count ', fMailbox.Count);
+			DispatchEvent(Message.ClassName, Nil);
+		End;
 	Finally
 		fMailbox.Drop;
 	End;
