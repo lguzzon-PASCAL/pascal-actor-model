@@ -89,6 +89,8 @@ Type
 	Private
 		fClasses : TFPHashList;
 		fInstances : TFPHashObjectList;
+		fAliases : TFPStringHashTable;
+		fNotifyActorCreateDestroy : TStringList;
 	Public
 		// Message handlers
 		Procedure RegisterClass(Var aMessage); Message 'TRegisterClassActorMessage';
@@ -97,6 +99,8 @@ Type
 		Procedure CreateInstanceAndConfig(Var aMessage); Message 'TCreateInstanceAndConfigActorMessage';
 		Procedure RemoveInstance(Var aMessage); Message 'TRemoveActorMessage';
 		Procedure ForeignMessage(Var aMessage); Message 'TForeignActorMessage';
+		Procedure TRegisterAliasActorMessage
+		Procedure TNotifyCreationDestructionActorMessage
 		// Switchboard misc
 		Constructor Create(Const aName : String = ccDefaultSwitchBoardName; Const aTimeout : Integer = ccDefaultTimeout); Override;
 		Destructor Destroy; Override;
@@ -402,6 +406,8 @@ Begin
 	fInstances := TFPHashObjectList.Create;
 	fInstances.OwnsObjects := True;
 	fClasses := TFPHashList.Create;
+	fAliases := TFPStringHashTable.Create;
+	fNotifyActorCreateDestroy := TStringList.Create;
 	// Debug WriteLn('Done.');
 End;
 
@@ -409,6 +415,8 @@ Destructor TSwitchBoardActor.Destroy;
 Begin
 	FreeAndNil(fClasses);
 	FreeAndNil(fInstances);
+	FreeAndNil(fAliases);
+	FreeAndNil(fNotifyActorCreateDestroy);
 	Inherited Destroy;
 End;
 
