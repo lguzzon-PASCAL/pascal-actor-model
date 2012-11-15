@@ -39,6 +39,7 @@ Type
 		fIP,
 		fPort : String;
 		fWorkerClass : String;
+		fLastWorkerNum : Integer;
 	Public
 		Constructor Create(Const aName : String = ''; Const aTimeout : Integer = ccDefaultTimeout); Override;
 		Destructor Destroy; Override;
@@ -88,6 +89,7 @@ Begin
 	fIP := '0.0.0.0';
 	fPort := '0';
 	fWorkerClass := '';
+	fLastWorkerNum := 0;
 End;
 
 Destructor TTCPListenerActor.Destroy;
@@ -99,6 +101,9 @@ End;
 Procedure TTCPListenerActor.Idle;
 Var
 	lSocket : Integer;
+	lCreate : TCreateInstanceActorMessage;
+	lConfig : TConfigInstanceActorMessage;
+	lStart : TStartWorkActorMessage;
 Begin
 	If Working Then
 		If fSocket.CanRead(fSocketTimeout) Then
@@ -108,6 +113,21 @@ Begin
 				ThrowError(fSocket.LastErrorDesc)
 			Else
 			Begin
+				lCreate := TCreateInstanceActorMessage.Create(ActorName, Switchboard.ActorName);
+				lCreate.NameOfInstance := 'tcpworker' + IntToStr(fLastWorkerNum);
+				lCreate.NameOfClass := fWorkerClass;
+				Send(lCreate);
+				lConfig := TConfigInstanceActorMessage.Create(ActorName, 'tcpworker' + IntToStr(fLastWorkerNum));
+				lConfig.Name := 'SocketInt';
+				lConfig.Value := lSocket;
+				Send(lConfig);
+				lConfig := TConfigInstanceActorMessage.Create(ActorName, 'tcpworker' + IntToStr(fLastWorkerNum));
+				lConfig.Name := 'SocketTimeout';
+				lConfig.Value := fSocketTimeout;
+				Send(lConfig);
+				lStart := TStartWorkActorMessage.Create(ActorName, 'tcpworker' + IntToStr(fLastWorkerNum));
+				Send(lConfig);
+				Inc(fLastWorkerNum);
 			End;
 		End;
 End;

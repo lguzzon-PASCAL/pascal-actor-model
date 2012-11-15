@@ -179,6 +179,10 @@ Type
 	TRegisterClassActorMessage = Class(TCustomClassReferenceActorMessage);
 	TUnregisterClassActorMessage = Class(TCustomStringActorMessage);
 
+	// Aliasing and notification
+	TRegisterAliasActorMessage = Class(TCustomStringActorMessage);
+	TNotifyCreationDestructionActorMessage = Class(TCustomActorMessage);
+
 	// Standard Logging
 	TCustomLogActorMessage = Class(TCustomStringActorMessage);
 	TLogActorMessage = Class(TCustomLogActorMessage);
@@ -429,6 +433,8 @@ Begin
 	ActorMessageClassFactory.RegisterMessage(TGetConfigInstanceReplyActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TRegisterClassActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TUnregisterClassActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TRegisterAliasActorMessage);
+	ActorMessageClassFactory.RegisterMessage(TNotifyCreationDestructionActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TCustomLogActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TLogActorMessage);
 	ActorMessageClassFactory.RegisterMessage(TWarningActorMessage);
