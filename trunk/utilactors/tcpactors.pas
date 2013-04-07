@@ -126,7 +126,7 @@ Begin
 				lConfig.Value := fSocketTimeout;
 				Send(lConfig);
 				lStart := TStartWorkActorMessage.Create(ActorName, 'tcpworker' + IntToStr(fLastWorkerNum));
-				Send(lConfig);
+				Send(lStart);
 				Inc(fLastWorkerNum);
 			End;
 		End;
