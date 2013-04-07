@@ -172,13 +172,12 @@ End;
 
 Procedure TTCPWorkerActor.Idle;
 Begin
-	If Working Then
-		If fSocketInt > -1 Then
-			If fSocket.CanRead(fSocketTimeout) Then
-				OnSocketCanRead
-			Else
+	If Working And (fSocketInt > -1) Then
+		If fSocket.CanRead(fSocketTimeout) Then
+			OnSocketCanRead
 		Else
-			Sleep(fSocketTimeout);
+	Else
+		Sleep(fSocketTimeout);
 End;
 
 Procedure TTCPWorkerActor.OnStartWork;
